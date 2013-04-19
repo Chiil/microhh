@@ -34,6 +34,14 @@ int cboundary_surface::readinifile(cinput *inputin)
     n += inputin->getItem(&sbc[it->first]->top  , "boundary", "stop"  , it->first);
   }
 
+  // patch type
+  n += inputin->getItem(&patch_dim,  "boundary", "patch_dim" , "", 2 );
+  n += inputin->getItem(&patch_xh,   "boundary", "patch_xh"  , "", 1.);
+  n += inputin->getItem(&patch_xr,   "boundary", "patch_xr"  , "", 1.);
+  n += inputin->getItem(&patch_xi,   "boundary", "patch_xi"  , "", 0.);
+  n += inputin->getItem(&patch_facr, "boundary", "patch_facr", "", 1.);
+  n += inputin->getItem(&patch_facl, "boundary", "patch_facl", "", 0.);
+ 
   n += inputin->getItem(&z0m, "boundary", "z0m", "");
   n += inputin->getItem(&z0h, "boundary", "z0h", "");
 
@@ -66,6 +74,56 @@ int cboundary_surface::init()
   return 0;
 }
 
+int cboundary_surface::setbc_patch(double * restrict a, double facl, double facr, double aval)
+{
+  // dimensions patches
+  double xrmid   = 0.5*patch_xh;
+  double xrstart = 0.5*(patch_xh - patch_xr);
+  double xrend   = 0.5*(patch_xh + patch_xr);
+
+  double avall, avalr;
+  double xmod, ymod;
+  double errvalx, errvaly;
+
+  int ij,jj;
+  jj = grid->icells;
+
+  avall = facl*aval;
+  avalr = facr*aval;
+
+  for(int j=grid->jstart; j<grid->jend; ++j)
+#pragma ivdep
+    for(int i=grid->istart; i<grid->iend; ++i)
+    {
+      ij = i + j*jj;
+      xmod = fmod(grid->x[i], patch_xh);
+      ymod = fmod(grid->y[j], patch_xh);
+
+      if(xmod < xrmid)
+        errvalx =  0.5*erf(0.5*(xmod-xrstart) / patch_xi);
+      else
+        errvalx = -0.5*erf(0.5*(xmod-xrend) / patch_xi);
+
+      if(patch_dim == 2)
+      {
+        if(ymod < xrmid)
+          errvaly =  0.5*erf(0.5*(ymod-xrstart) / patch_xi);
+        else
+          errvaly = -0.5*erf(0.5*(ymod-xrend) / patch_xi);
+      }
+      else
+        errvaly = 1.;
+
+      // normalize the values between 0 and 1
+      errvalx = errvalx + 0.5;
+      errvaly = errvaly + 0.5;
+
+      a[ij] = avall + (avalr-avall)*errvalx*errvaly;
+    }
+
+  return 0;
+}
+
 int cboundary_surface::setvalues()
 {
   setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, mbcbot, 0., fields->visc);
@@ -76,7 +134,7 @@ int cboundary_surface::setvalues()
 
   for(fieldmap::iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
   {
-    setbc(it->second->databot, it->second->datagradbot, it->second->datafluxbot, sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc);
+    setbc_patch(it->second->datafluxbot, patch_facl, patch_facr, sbc[it->first]->bot);
     setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc);
   }
 
@@ -324,7 +382,7 @@ int cboundary_surface::surfs(double * restrict ustar, double * restrict obuk, do
       {
         ij  = i + j*jj;
         ijk = i + j*jj + kstart*kk;
-        varbot[ij]     =  varfluxbot[ij] / (ustar[ij]*fh(zsl, z0h, obuk[ij])) + var[ijk];
+        varbot[ij] = varfluxbot[ij] / (ustar[ij]*fh(zsl, z0h, obuk[ij])) + var[ijk];
         // vargradbot[ij] = -varfluxbot[ij] / (kappa*z0h*ustar[ij]) * phih(zsl/obuk[ij]);
         // use the linearly interpolated grad, rather than the MO grad,
         // to prevent giving unresolvable gradients to advection schemes
