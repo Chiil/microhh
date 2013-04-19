@@ -20,6 +20,16 @@ class cboundary_surface : public cboundary
     double *ustar;
 
   private:
+    int setbc_patch(double *, double, double, double);
+
+    // patch type
+    int    patch_dim;
+    double patch_xh;
+    double patch_xr;
+    double patch_xi;
+    double patch_facr;
+    double patch_facl;
+
     // surface scheme
     int bcvalues();
     int stability(double *, double *, double *,
