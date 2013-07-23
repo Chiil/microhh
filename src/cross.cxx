@@ -24,10 +24,11 @@ int ccross::readinifile(cinput *inputin)
   // optional, by default switch cross off
   n += inputin->getItem(&swcross, "cross", "swcross", "", "0");
 
-  n += inputin->getItem(&crosstime, "cross", "crosstime", "");
-
   if(swcross == "1")
   {
+    // get the time at which the cross sections are triggered
+    n += inputin->getItem(&crosstime, "cross", "crosstime", "");
+
     // get the list of indices at which to take cross sections
     n += inputin->getList(&jxz, "cross", "jxz", "");
     n += inputin->getList(&kxy, "cross", "kxy", "");
@@ -52,6 +53,9 @@ int ccross::init(int ifactor)
 
 unsigned long ccross::gettimelim(unsigned long itime)
 {
+  if(swcross == "0")
+    return dhuge;
+
   unsigned long idtlim = icrosstime - itime % icrosstime;
 
   return idtlim;
