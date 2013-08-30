@@ -154,19 +154,21 @@ int cboundary_surface::setbc_patch(double * restrict a, double facl, double facr
       else
         errvalx = -0.5*erf(0.5*(xmod-xrend) / patch_xi);
 
+      // normalize the values between 0 and 1
+      errvalx = errvalx + 0.5;
+
       if(patch_dim == 2)
       {
         if(ymod < xrmid)
           errvaly =  0.5*erf(0.5*(ymod-xrstart) / patch_xi);
         else
           errvaly = -0.5*erf(0.5*(ymod-xrend) / patch_xi);
+
+        // normalize value betweeen 0 and 1
+        errvaly = errvaly + 0.5;
       }
       else
         errvaly = 1.;
-
-      // normalize the values between 0 and 1
-      errvalx = errvalx + 0.5;
-      errvaly = errvaly + 0.5;
 
       a[ij] = avall + (avalr-avall)*errvalx*errvaly;
     }
