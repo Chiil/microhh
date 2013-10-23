@@ -6,6 +6,9 @@
 #include "boundary_surface.h"
 #include "defines.h"
 
+#define NO_VELOCITY 0.
+#define NO_OFFSET 0.
+
 // a sign function
 inline double sign(double n) { return n > 0 ? 1 : (n < 0 ? -1 : 0);}
 
@@ -28,7 +31,6 @@ int cboundary_surface::readinifile(cinput *inputin)
   int n = 0;
 
   // obligatory parameters
-  // n += inputin->getItem(&swboundary, "boundary", "swboundary", "", grid->swspatialorder);
   swspatialorder = grid->swspatialorder;
 
   n += inputin->getItem(&mbcbot, "boundary", "mbcbot", "");
@@ -55,18 +57,39 @@ int cboundary_surface::readinifile(cinput *inputin)
   n += inputin->getItem(&z0m, "boundary", "z0m", "");
   n += inputin->getItem(&z0h, "boundary", "z0h", "");
 
-  // read the ustar value only if fixed fluxes are prescribed
-  if(mbctop == 2)
-    n += inputin->getItem(&ustarin, "boundary", "ustar", "");
-
   // copy all the boundary options and set the model ones to flux type
   surfmbcbot = mbcbot;
   mbcbot = 2;
 
+  // crash in case fixed gradient is prescribed
+  if(surfmbcbot == 1)
+  {
+    if(mpi->mpiid == 0) std::printf("ERROR fixed gradient bc is not supported in surface model\n");
+    ++n;
+  }
+  // read the ustar value only if fixed fluxes are prescribed
+  else if(surfmbcbot == 2)
+    n += inputin->getItem(&ustarin, "boundary", "ustar", "");
+
+  // process the scalars
   for(bcmap::iterator it=sbc.begin(); it!=sbc.end(); ++it)
   {
     surfsbcbot[it->first] = it->second->bcbot;
     it->second->bcbot = 2;
+
+    // crash in case fixed gradient is prescribed
+    if(surfsbcbot[it->first] == 1)
+    {
+      if(mpi->mpiid == 0) std::printf("ERROR fixed gradient bc is not supported in surface model\n");
+      ++n;
+    }
+
+    // crash in case of fixed momentum flux and dirichlet bc for scalar
+    if(surfsbcbot[it->first] == 0 && surfmbcbot == 2)
+    {
+      if(mpi->mpiid == 0) std::printf("ERROR fixed ustar bc in combination with Dirichlet bc for scalars is not supported\n");
+      ++n;
+    }
   }
 
   // if one argument fails, then crash
@@ -103,9 +126,14 @@ int cboundary_surface::save(int iotime)
   char filename[256];
 
   std::sprintf(filename, "obuk.%07d", iotime);
-  if(mpi->mpiid == 0) std::printf("Saving \"%s\"\n", filename);
+  if(mpi->mpiid == 0) std::printf("Saving \"%s\" ... ", filename);
   if(grid->savexyslice(obuk, fields->s["tmp1"]->data, filename))
+  {
+    if(mpi->mpiid == 0) std::printf("FAILED\n");
     return 1;
+  }
+  else
+    if(mpi->mpiid == 0) std::printf("OK\n");
 
   return 0;
 }
@@ -115,9 +143,14 @@ int cboundary_surface::load(int iotime)
   char filename[256];
 
   std::sprintf(filename, "obuk.%07d", iotime);
-  if(mpi->mpiid == 0) std::printf("Loading \"%s\"\n", filename);
+  if(mpi->mpiid == 0) std::printf("Loading \"%s\" ... ", filename);
   if(grid->loadxyslice(obuk, fields->s["tmp1"]->data, filename))
+  {
+    if(mpi->mpiid == 0) std::printf("FAILED\n");
     return 1;
+  }
+  else
+    if(mpi->mpiid == 0) std::printf("OK\n");
 
   grid->boundary_cyclic2d(obuk);
 
@@ -178,16 +211,17 @@ int cboundary_surface::setbc_patch(double * restrict a, double facl, double facr
 
 int cboundary_surface::setvalues()
 {
-  setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, mbcbot, 0., fields->visc);
-  setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, mbcbot, 0., fields->visc);
+  // grid transformation is properly taken into account by setting the databot and top values
+  setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, surfmbcbot, NO_VELOCITY, fields->visc, grid->u);
+  setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, surfmbcbot, NO_VELOCITY, fields->visc, grid->v);
 
-  setbc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, 0., fields->visc);
-  setbc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, 0., fields->visc);
+  setbc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->u);
+  setbc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->v);
 
   for(fieldmap::iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
   {
     setbc_patch(it->second->datafluxbot, patch_facl, patch_facr, sbc[it->first]->bot);
-    setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc);
+    setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, NO_OFFSET);
   }
 
   int ij,jj;
@@ -268,6 +302,7 @@ int cboundary_surface::stability(double * restrict ustar, double * restrict obuk
 
   // TODO replace by value from buoyancy
   double gravitybeta = 9.81/300.;
+  double db;
 
   // calculate Obukhov length
   // case 1: fixed buoyancy flux and fixed ustar
@@ -282,14 +317,27 @@ int cboundary_surface::stability(double * restrict ustar, double * restrict obuk
       }
   }
   // case 2: fixed buoyancy surface value and free ustar
-  if(surfmbcbot == 0 && surfsbcbot["s"] == 2)
+  else if(surfmbcbot == 0 && surfsbcbot["s"] == 2)
   {
     for(int j=0; j<grid->jcells; ++j)
 #pragma ivdep
       for(int i=0; i<grid->icells; ++i)
       {
         ij  = i + j*jj;
-        obuk [ij] = calcobuk(obuk[ij], dutot[ij], bfluxbot[ij], z[kstart]);
+        obuk [ij] = calcobuk_noslip_flux(obuk[ij], dutot[ij], bfluxbot[ij], z[kstart]);
+        ustar[ij] = dutot[ij] * fm(z[kstart], z0m, obuk[ij]);
+      }
+  }
+  else if(surfmbcbot == 0 && surfsbcbot["s"] == 0)
+  {
+    for(int j=0; j<grid->jcells; ++j)
+#pragma ivdep
+      for(int i=0; i<grid->icells; ++i)
+      {
+        ij  = i + j*jj;
+        ijk = i + j*jj + kstart*kk;
+        db = b[ijk] - bbot[ij];
+        obuk [ij] = calcobuk_noslip_dirichlet(obuk[ij], dutot[ij], db, z[kstart]);
         ustar[ij] = dutot[ij] * fm(z[kstart], z0m, obuk[ij]);
       }
   }
@@ -332,7 +380,7 @@ int cboundary_surface::surfm(double * restrict ustar, double * restrict obuk,
   else if(bcbot == 2)
   {
     // first redistribute ustar over the two flux components
-    double u2, v2, vonu2,uonv2,ustaronu4,ustaronv4;
+    double u2,v2,vonu2,uonv2,ustaronu4,ustaronv4;
     const double minval = 1.e-2;
 
     for(int j=grid->jstart; j<grid->jend; ++j)
@@ -436,7 +484,7 @@ int cboundary_surface::surfs(double * restrict ustar, double * restrict obuk, do
   return 0;
 }
 
-double cboundary_surface::calcobuk(double L, double du, double bfluxbot, double zsl)
+double cboundary_surface::calcobuk_noslip_flux(double L, double du, double bfluxbot, double zsl)
 {
   double L0;
   double Lstart, Lend;
@@ -448,7 +496,10 @@ double cboundary_surface::calcobuk(double L, double du, double bfluxbot, double 
   const double Lmax = 1.e20;
 
   // avoid bfluxbot to be zero
-  bfluxbot = std::max(dsmall, bfluxbot);
+  if(bfluxbot >= 0.)
+    bfluxbot = std::max(dsmall, bfluxbot);
+  else
+    bfluxbot = std::min(-dsmall, bfluxbot);
 
   // allow for one restart
   while(m <= 1)
@@ -483,6 +534,78 @@ double cboundary_surface::calcobuk(double L, double du, double bfluxbot, double 
       Lend   = L + 0.001*L;
       fxdif  = ( (zsl/Lend + kappa*gravitybeta*zsl*bfluxbot / std::pow(du * fm(zsl, z0m, Lend), 3.))
                - (zsl/Lstart + kappa*gravitybeta*zsl*bfluxbot / std::pow(du * fm(zsl, z0m, Lstart), 3.)) )
+             / (Lend - Lstart);
+      L      = L - fx/fxdif;
+      ++n;
+    }
+
+    // convergence has been reached
+    if(n < nlim && std::abs(L) < Lmax)
+      break;
+    // convergence has not been reached, procedure restarted once
+    else
+    {
+      L = dsmall;
+      ++m;
+      nlim = 200;
+    }
+  }
+
+  if(m > 1)
+    std::printf("ERROR convergence has not been reached in Obukhov length calculation\n");
+
+  return L;
+}
+double cboundary_surface::calcobuk_noslip_dirichlet(double L, double du, double db, double zsl)
+{
+  double L0;
+  double Lstart, Lend;
+  double fx, fxdif;
+
+  int m = 0;
+  int nlim = 10;
+
+  const double Lmax = 1.e20;
+
+  // avoid db to be zero
+  if(db >= 0.)
+    db = std::max(dsmall, db);
+  else
+    db = std::min(-dsmall, db);
+
+  // allow for one restart
+  while(m <= 1)
+  {
+    // if L and db are of different sign, or the last calculation did not converge,
+    // the stability has changed and the procedure needs to be reset
+    if(L*db <= 0.)
+    {
+      nlim = 200;
+      if(db >= 0.)
+        L = dsmall;
+      else
+        L = -dsmall;
+    }
+
+    if(db >= 0.)
+      L0 = dhuge;
+    else
+      L0 = -dhuge;
+
+    // TODO replace by value from buoyancy
+    double gravitybeta = 9.81/300.;
+    int n = 0;
+
+    // exit on convergence or on iteration count
+    while(std::abs((L - L0)/L0) > 0.001 && n < nlim && std::abs(L) < Lmax)
+    {
+      L0     = L;
+      // fx     = Rib - zsl/L * (std::log(zsl/z0h) - psih(zsl/L) + psih(z0h/L)) / std::pow(std::log(zsl/z0m) - psim(zsl/L) + psim(z0m/L), 2.);
+      fx     = zsl/L - kappa*gravitybeta*zsl*db*fh(zsl, z0h, L) / std::pow(du * fm(zsl, z0m, L), 2.);
+      Lstart = L - 0.001*L;
+      Lend   = L + 0.001*L;
+      fxdif  = ( (zsl/Lend - kappa*gravitybeta*zsl*db*fh(zsl, z0h, L) / std::pow(du * fm(zsl, z0m, Lend), 2.))
+               - (zsl/Lstart - kappa*gravitybeta*zsl*db*fh(zsl, z0h, L) / std::pow(du * fm(zsl, z0m, Lstart), 2.)) )
              / (Lend - Lstart);
       L      = L - fx/fxdif;
       ++n;

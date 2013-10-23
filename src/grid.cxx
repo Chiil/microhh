@@ -7,7 +7,6 @@
 // build the grid
 cgrid::cgrid(cmpi *mpiin)
 {
-  // std::printf("Creating instance of object grid\n");
   mpi = mpiin;
 
   allocated = false;
@@ -62,6 +61,10 @@ int cgrid::readinifile(cinput *inputin)
   n += inputin->getItem(&itot, "grid", "itot", "");
   n += inputin->getItem(&jtot, "grid", "jtot", "");
   n += inputin->getItem(&ktot, "grid", "ktot", "");
+
+  // velocity of the grid for gaelian transformation
+  n += inputin->getItem(&u, "grid", "u", "", 0.);
+  n += inputin->getItem(&v, "grid", "v", "", 0.);
 
   n += inputin->getItem(&swspatialorder, "grid", "swspatialorder", "");
 

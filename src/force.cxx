@@ -22,22 +22,35 @@ cforce::~cforce()
       delete[] ug;
       delete[] vg;
     }
+
+    if(swls == "1")
+    {
+      for(std::vector<std::string>::const_iterator it=lslist.begin(); it!=lslist.end(); ++it)
+        delete[] lsprofs[*it];
+    }
+
+    if(swwls == "1")
+      delete[] wls;
   }
 }
 
 int cforce::readinifile(cinput *inputin)
 {
-  int n = 0;
+  int nerror = 0;
 
-  n += inputin->getItem(&swforce, "force", "swforce", "");
+  nerror += inputin->getItem(&swforce, "force", "swforce", "");
+  nerror += inputin->getItem(&swls   , "force", "swls"   , "", "0");
+  nerror += inputin->getItem(&swwls  , "force", "swwls"  , "", "0");
   
   if(swforce == "1")
-    n += inputin->getItem(&uflow, "force", "uflow", "");
+    nerror += inputin->getItem(&uflow, "force", "uflow", "");
+  else if(swforce == "2")
+    nerror += inputin->getItem(&fc, "force", "fc", "");
 
-  if(swforce == "2")
-    n += inputin->getItem(&fc, "force", "fc", "");
+  if(swls == "1")
+    nerror += inputin->getList(&lslist, "force", "lslist", "");
 
-  if(n > 0)
+  if(nerror > 0)
     return 1;
 
   return 0;
@@ -51,6 +64,15 @@ int cforce::init()
     vg = new double[grid->kcells];
   }
 
+  if(swls == "1")
+  {
+    for(std::vector<std::string>::const_iterator it=lslist.begin(); it!=lslist.end(); ++it)
+      lsprofs[*it] = new double[grid->kcells];
+  }
+
+  if(swwls == "1")
+    wls = new double[grid->kcells];
+
   allocated = true;
 
   return 0;
@@ -58,15 +80,25 @@ int cforce::init()
 
 int cforce::create(cinput *inputin)
 {
-  int n = 0;
+  int nerror = 0;
 
   if(swforce == "2")
   {
-    n += inputin->getProf(&ug[grid->kstart], "ug", grid->kmax);
-    n += inputin->getProf(&vg[grid->kstart], "vg", grid->kmax);
+    nerror += inputin->getProf(&ug[grid->kstart], "ug", grid->kmax);
+    nerror += inputin->getProf(&vg[grid->kstart], "vg", grid->kmax);
   }
 
-  if(n > 0)
+  if(swls == "1")
+  {
+    // read the large scale sources, which are the variable names with a "ls" suffix
+    for(std::vector<std::string>::const_iterator it=lslist.begin(); it!=lslist.end(); ++it)
+      nerror += inputin->getProf(&lsprofs[*it][grid->kstart], *it+"ls", grid->kmax);
+  }
+
+  if(swwls == "1")
+    nerror += inputin->getProf(&wls[grid->kstart], "wls", grid->kmax);
+
+  if(nerror > 0)
     return 1;
 
   return 0;
@@ -74,10 +106,7 @@ int cforce::create(cinput *inputin)
 
 int cforce::exec(double dt)
 {
-  if(swforce == "0")
-    return 0;
-
-  else if(swforce == "1")
+  if(swforce == "1")
     flux((*fields->ut).data, (*fields->u).data, grid->dz, dt);
 
   else if(swforce == "2")
@@ -88,97 +117,39 @@ int cforce::exec(double dt)
       coriolis_4th(fields->ut->data, fields->vt->data, fields->u->data, fields->v->data, ug, vg);
   }
 
-  return 0;
-}
-
-int cforce::save()
-{
-  // TODO add subsidence to the same save file
-  if(swforce == "2")
+  if(swls == "1")
   {
-    char filename[256];
-    std::sprintf(filename, "%s.%07d", "force", 0);
+    for(std::vector<std::string>::const_iterator it=lslist.begin(); it!=lslist.end(); ++it)
+      lssource(fields->st[*it]->data, lsprofs[*it]);
+  }
 
-    if(mpi->mpiid == 0)
-    {
-      std::printf("Saving \"%s\"\n", filename);
-      FILE *pFile;
-      pFile = fopen(filename, "wb");
-
-      if(pFile == NULL)
-      {
-        std::printf("ERROR \"%s\" cannot be written", filename);
-        return 1;
-      }
-
-      fwrite(&ug[grid->kstart], sizeof(double), grid->kmax, pFile);
-      fwrite(&vg[grid->kstart], sizeof(double), grid->kmax, pFile);
-      
-      fclose(pFile);
-    }
+  if(swwls == "1")
+  {
+    for(fieldmap::iterator it = fields->st.begin(); it!=fields->st.end(); it++)
+      advecwls_2nd(it->second->data, fields->s[it->first]->data, wls, grid->dzhi);
   }
 
   return 0;
 }
 
-int cforce::load()
-{
-  int nerror = 0;
-
-  if(swforce == "2")
-  {
-    char filename[256];
-    std::sprintf(filename, "%s.%07d", "force", 0);
-
-    if(mpi->mpiid == 0)
-    {
-      std::printf("Loading \"%s\"\n", filename);
-
-      FILE *pFile;
-      pFile = fopen(filename, "rb");
-
-      if(pFile == NULL)
-      {
-        std::printf("ERROR \"%s\" does not exist\n", filename);
-        ++nerror;
-      }
-      else
-      {
-        fread(&ug[grid->kstart], sizeof(double), grid->kmax, pFile);
-        fread(&vg[grid->kstart], sizeof(double), grid->kmax, pFile);
-      
-        fclose(pFile);
-      }
-    }
-
-    mpi->broadcast(&nerror, 1);
-    if(nerror)
-      return 1;
-
-    // send the buffers to all processes
-    mpi->broadcast(ug, grid->kmax);
-    mpi->broadcast(vg, grid->kmax);
-  }
-
-  return 0;
-}
-
-int cforce::flux(double * restrict ut, double * restrict u, double * restrict dz, double dt)
+int cforce::flux(double * const restrict ut, const double * const restrict u, 
+                 const double * const restrict dz, const double dt)
 {
   int ijk,jj,kk;
 
   jj = grid->icells;
   kk = grid->icells*grid->jcells;
   
-  double uavg, utavg;
+  double uavg, utavg, ugrid;
 
   uavg  = 0.;
   utavg = 0.;
+  ugrid = grid->u;
 
-  for(int k=grid->kstart; k<grid->kend; k++)
-    for(int j=grid->jstart; j<grid->jend; j++)
+  for(int k=grid->kstart; k<grid->kend; ++k)
+    for(int j=grid->jstart; j<grid->jend; ++j)
 #pragma ivdep
-      for(int i=grid->istart; i<grid->iend; i++)
+      for(int i=grid->istart; i<grid->iend; ++i)
       {
         ijk = i + j*jj + k*kk;
         uavg  = uavg  + u [ijk]*dz[k];
@@ -192,7 +163,7 @@ int cforce::flux(double * restrict ut, double * restrict u, double * restrict dz
   utavg = utavg / (grid->itot*grid->jtot*grid->zsize);
 
   double fbody; 
-  fbody = (uflow - uavg) / dt - utavg;
+  fbody = (uflow - uavg - ugrid) / dt - utavg;
 
   for(int n=0; n<grid->ncells; n++)
     ut[n] += fbody;
@@ -200,42 +171,47 @@ int cforce::flux(double * restrict ut, double * restrict u, double * restrict dz
   return 0;
 }
 
-int cforce::coriolis_2nd(double * restrict ut, double * restrict vt,
-                         double * restrict u , double * restrict v ,
-                         double * restrict ug, double * restrict vg)
+int cforce::coriolis_2nd(double * const restrict ut, double * const restrict vt,
+                         const double * const restrict u , const double * const restrict v ,
+                         const double * const restrict ug, const double * const restrict vg)
 {
   int ijk,ii,jj,kk;
+  double ugrid, vgrid;
 
   ii = 1;
   jj = grid->icells;
   kk = grid->icells*grid->jcells;
 
-  for(int k=grid->kstart; k<grid->kend; k++)
-    for(int j=grid->jstart; j<grid->jend; j++)
+  ugrid = grid->u;
+  vgrid = grid->v;
+
+  for(int k=grid->kstart; k<grid->kend; ++k)
+    for(int j=grid->jstart; j<grid->jend; ++j)
 #pragma ivdep
-      for(int i=grid->istart; i<grid->iend; i++)
+      for(int i=grid->istart; i<grid->iend; ++i)
       {
         ijk = i + j*jj + k*kk;
-        ut[ijk] += fc * (0.25*(v[ijk-ii] + v[ijk] + v[ijk-ii+jj] + v[ijk+jj]) - vg[k]);
+        ut[ijk] += fc * (0.25*(v[ijk-ii] + v[ijk] + v[ijk-ii+jj] + v[ijk+jj]) + vgrid - vg[k]);
       }
 
-  for(int k=grid->kstart; k<grid->kend; k++)
-    for(int j=grid->jstart; j<grid->jend; j++)
+  for(int k=grid->kstart; k<grid->kend; ++k)
+    for(int j=grid->jstart; j<grid->jend; ++j)
 #pragma ivdep
-      for(int i=grid->istart; i<grid->iend; i++)
+      for(int i=grid->istart; i<grid->iend; ++i)
       {
         ijk = i + j*jj + k*kk;
-        vt[ijk] -= fc * (0.25*(u[ijk-jj] + u[ijk] + u[ijk+ii-jj] + u[ijk+ii]) - ug[k]);
+        vt[ijk] -= fc * (0.25*(u[ijk-jj] + u[ijk] + u[ijk+ii-jj] + u[ijk+ii]) + ugrid - ug[k]);
       }
 
   return 0;
 }
 
-int cforce::coriolis_4th(double * restrict ut, double * restrict vt,
-                         double * restrict u , double * restrict v ,
-                         double * restrict ug, double * restrict vg)
+int cforce::coriolis_4th(double * const restrict ut, double * const restrict vt,
+                         const double * const restrict u , const double * const restrict v ,
+                         const double * const restrict ug, const double * const restrict vg)
 {
   int ijk,ii1,ii2,jj1,jj2,kk1;
+  double ugrid, vgrid;
 
   ii1 = 1;
   ii2 = 2;
@@ -243,30 +219,91 @@ int cforce::coriolis_4th(double * restrict ut, double * restrict vt,
   jj2 = 2*grid->icells;
   kk1 = 1*grid->icells*grid->jcells;
 
-  for(int k=grid->kstart; k<grid->kend; k++)
-    for(int j=grid->jstart; j<grid->jend; j++)
+  ugrid = grid->u;
+  vgrid = grid->v;
+
+  for(int k=grid->kstart; k<grid->kend; ++k)
+    for(int j=grid->jstart; j<grid->jend; ++j)
 #pragma ivdep
-      for(int i=grid->istart; i<grid->iend; i++)
+      for(int i=grid->istart; i<grid->iend; ++i)
       {
         ijk = i + j*jj1 + k*kk1;
         ut[ijk] += fc * ( ( ci0*(ci0*v[ijk-ii2-jj1] + ci1*v[ijk-ii1-jj1] + ci2*v[ijk-jj1] + ci3*v[ijk+ii1-jj1])
                           + ci1*(ci0*v[ijk-ii2    ] + ci1*v[ijk-ii1    ] + ci2*v[ijk    ] + ci3*v[ijk+ii1    ])
                           + ci2*(ci0*v[ijk-ii2+jj1] + ci1*v[ijk-ii1+jj1] + ci2*v[ijk+jj1] + ci3*v[ijk+ii1+jj1])
-                          + ci3*(ci0*v[ijk-ii2+jj2] + ci1*v[ijk-ii1+jj2] + ci2*v[ijk+jj2] + ci3*v[ijk+ii1+jj2]) ) - vg[k]);
+                          + ci3*(ci0*v[ijk-ii2+jj2] + ci1*v[ijk-ii1+jj2] + ci2*v[ijk+jj2] + ci3*v[ijk+ii1+jj2]) )
+                        + vgrid - vg[k] );
       }
 
-  for(int k=grid->kstart; k<grid->kend; k++)
-    for(int j=grid->jstart; j<grid->jend; j++)
+  for(int k=grid->kstart; k<grid->kend; ++k)
+    for(int j=grid->jstart; j<grid->jend; ++j)
 #pragma ivdep
-      for(int i=grid->istart; i<grid->iend; i++)
+      for(int i=grid->istart; i<grid->iend; ++i)
       {
         ijk = i + j*jj1 + k*kk1;
         vt[ijk] -= fc * ( ( ci0*(ci0*u[ijk-ii1-jj2] + ci1*u[ijk-jj2] + ci2*u[ijk+ii1-jj2] + ci3*u[ijk+ii2-jj2])
                           + ci1*(ci0*u[ijk-ii1-jj1] + ci1*u[ijk-jj1] + ci2*u[ijk+ii1-jj1] + ci3*u[ijk+ii2-jj1])
                           + ci2*(ci0*u[ijk-ii1    ] + ci1*u[ijk    ] + ci2*u[ijk+ii1    ] + ci3*u[ijk+ii2    ])
-                          + ci3*(ci0*u[ijk-ii1+jj1] + ci1*u[ijk+jj1] + ci2*u[ijk+ii1+jj1] + ci3*u[ijk+ii2+jj1]) ) - ug[k]);
+                          + ci3*(ci0*u[ijk-ii1+jj1] + ci1*u[ijk+jj1] + ci2*u[ijk+ii1+jj1] + ci3*u[ijk+ii2+jj1]) )
+                        + ugrid - ug[k]);
       }
 
   return 0;
 }
 
+int cforce::lssource(double * const restrict st, const double * const restrict sls)
+{
+  int ijk,jj,kk;
+
+  jj = grid->icells;
+  kk = grid->icells*grid->jcells;
+
+  for(int k=grid->kstart; k<grid->kend; ++k)
+    for(int j=grid->jstart; j<grid->jend; ++j)
+      for(int i=grid->istart; i<grid->iend; ++i)
+      {
+        ijk = i + j*jj + k*kk;
+        st[ijk] += sls[k];
+      }
+
+  return 0;
+}
+
+int cforce::advecwls_2nd(double * const restrict st, const double * const restrict s,
+                         const double * const restrict wls, const double * const dzhi)
+{
+  int ijk,jj,kk;
+
+  jj = grid->icells;
+  kk = grid->icells*grid->jcells;
+
+  // use an upwind differentiation
+  for(int k=grid->kstart; k<grid->kend; ++k)
+  {
+    if(wls[k] >= 0.)
+    {
+      for(int j=grid->jstart; j<grid->jend; ++j)
+        for(int i=grid->istart; i<grid->iend; ++i)
+        {
+          ijk = i + j*jj + k*kk;
+          st[ijk] -=  wls[k] * (s[ijk]-s[ijk-kk])*dzhi[k];
+        }
+    }
+    else
+    {
+      for(int j=grid->jstart; j<grid->jend; ++j)
+        for(int i=grid->istart; i<grid->iend; ++i)
+        {
+          ijk = i + j*jj + k*kk;
+          st[ijk] -=  wls[k] * (s[ijk+kk]-s[ijk])*dzhi[k+1];
+        }
+    }
+  }
+
+  return 0;
+}
+
+inline double cforce::interp2(const double a, const double b)
+{
+  return 0.5*(a + b);
+}
