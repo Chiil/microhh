@@ -31,6 +31,8 @@ class cstats_les
     NcVar  *u_var , *v_var, *w_var, *s_var;
     NcVar  *evisc_var;
     NcVar  *u2_var, *v2_var, *w2_var, *s2_var;
+    NcVar  *u2_patch_var, *v2_patch_var, *w2_patch_var, *s2_patch_var;
+    NcVar  *u2_nopatch_var, *v2_nopatch_var, *w2_nopatch_var, *s2_nopatch_var;
     NcVar  *u3_var, *v3_var, *w3_var, *s3_var;
     NcVar  *ugrad_var, *vgrad_var, *sgrad_var;
     NcVar  *wu_var, *wv_var, *ws_var;
@@ -41,11 +43,17 @@ class cstats_les
     double *uabs, *vabs;
     double *evisc;
     double *u2, *v2, *w2, *s2;
+    int *nfilter;
+    double *u2_patch, *v2_patch, *w2_patch, *s2_patch;
+    double *u2_nopatch, *v2_nopatch, *w2_nopatch, *s2_nopatch;
     double *u3, *v3, *w3, *s3;
     double *wu , *wv , *ws;
     double *ugrad, *vgrad, *sgrad;
     double *udiff, *vdiff, *sdiff;
     double *uflux, *vflux, *sflux;
+
+    int calcfilter       (double *, int *, double *, double *);
+    int calcmoment_filter(double *, double *, double *, double *, double *, int *, double, int);
 
     int calcmean     (double *, double *, double);
     int calcmoment   (double *, double *, double *, double, int);
