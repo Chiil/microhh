@@ -80,12 +80,24 @@ int cstats_les::init()
 
   // PATCH STATS
   nfilter = new int[grid->kcells]; 
+  patcharea = new double[grid->kcells];
   u2_patch = new double[grid->kcells];
   v2_patch = new double[grid->kcells];
   w2_patch = new double[grid->kcells];
   u2_nopatch = new double[grid->kcells];
   v2_nopatch = new double[grid->kcells];
   w2_nopatch = new double[grid->kcells];
+  // END PATCH STATS
+
+  // WUP STATS
+  nfilter2 = new int[grid->kcells]; 
+  wuparea = new double[grid->kcells];
+  u2_wup = new double[grid->kcells];
+  v2_wup = new double[grid->kcells];
+  w2_wup = new double[grid->kcells];
+  u2_nowup = new double[grid->kcells];
+  v2_nowup = new double[grid->kcells];
+  w2_nowup = new double[grid->kcells];
   // END PATCH STATS
 
   u3 = new double[grid->kcells];
@@ -158,6 +170,8 @@ int cstats_les::create(int n)
       s2_var = dataFile->add_var("s2", ncDouble, t_dim, z_dim );
 
       // PATCH STATS
+      patcharea_var = dataFile->add_var("patcharea", ncDouble, t_dim, zh_dim);
+
       u2_patch_var = dataFile->add_var("u2_patch", ncDouble, t_dim, z_dim );
       v2_patch_var = dataFile->add_var("v2_patch", ncDouble, t_dim, z_dim );
       w2_patch_var = dataFile->add_var("w2_patch", ncDouble, t_dim, zh_dim);
@@ -166,6 +180,18 @@ int cstats_les::create(int n)
       v2_nopatch_var = dataFile->add_var("v2_nopatch", ncDouble, t_dim, z_dim );
       w2_nopatch_var = dataFile->add_var("w2_nopatch", ncDouble, t_dim, zh_dim);
       // NOPATCH_STATS
+
+      // FILTER ON W
+      wuparea_var = dataFile->add_var("wuparea", ncDouble, t_dim, zh_dim);
+
+      u2_wup_var = dataFile->add_var("u2_wup", ncDouble, t_dim, z_dim );
+      v2_wup_var = dataFile->add_var("v2_wup", ncDouble, t_dim, z_dim );
+      w2_wup_var = dataFile->add_var("w2_wup", ncDouble, t_dim, zh_dim);
+
+      u2_nowup_var = dataFile->add_var("u2_nowup", ncDouble, t_dim, z_dim );
+      v2_nowup_var = dataFile->add_var("v2_nowup", ncDouble, t_dim, z_dim );
+      w2_nowup_var = dataFile->add_var("w2_nowup", ncDouble, t_dim, zh_dim);
+      // END FILTER
 
       u3_var = dataFile->add_var("u3", ncDouble, t_dim, z_dim );
       v3_var = dataFile->add_var("v3", ncDouble, t_dim, z_dim );
@@ -229,13 +255,20 @@ int cstats_les::exec(int iteration, double time)
   calcmean(fields->v->data, vabs, grid->v);
 
   // PATCH STATS
-  calcfilter(fields->s["tmp1"]->data, nfilter, fields->s["s"]->data, fields->s["s"]->datafluxbot);
-
+  calcfilter(fields->s["tmp1"]->data, patcharea, nfilter, fields->s["s"]->datafluxbot);
   // calc variances
   calcmoment_filter(fields->s["tmp1"]->data, fields->u->data, u, u2_patch, u2_nopatch, nfilter, 2., 0);
   calcmoment_filter(fields->s["tmp1"]->data, fields->v->data, v, v2_patch, v2_nopatch, nfilter, 2., 0);
   calcmoment_filter(fields->s["tmp1"]->data, fields->w->data, w, w2_patch, w2_nopatch, nfilter, 2., 1);
   // END PATCH STATS
+
+  // WUP STATS
+  calcfilter2(fields->s["tmp1"]->data, wuparea, nfilter2, fields->w->data);
+  // calc variances
+  calcmoment_filter(fields->s["tmp1"]->data, fields->u->data, u, u2_wup, u2_nowup, nfilter2, 2., 0);
+  calcmoment_filter(fields->s["tmp1"]->data, fields->v->data, v, v2_wup, v2_nowup, nfilter2, 2., 0);
+  calcmoment_filter(fields->s["tmp1"]->data, fields->w->data, w, w2_wup, w2_nowup, nfilter2, 2., 1);
+  // END WUP
 
   // calc variances
   calcmoment(fields->u->data, u, u2, 2., 0);
@@ -287,6 +320,7 @@ int cstats_les::exec(int iteration, double time)
     s2_var->put_rec(&s2[grid->kstart], nstats);
 
     // PATCH STATS
+    patcharea_var->put_rec(&patcharea[grid->kstart], nstats);
     u2_patch_var->put_rec(&u2_patch[grid->kstart], nstats);
     v2_patch_var->put_rec(&v2_patch[grid->kstart], nstats);
     w2_patch_var->put_rec(&w2_patch[grid->kstart], nstats);
@@ -295,6 +329,17 @@ int cstats_les::exec(int iteration, double time)
     v2_nopatch_var->put_rec(&v2_nopatch[grid->kstart], nstats);
     w2_nopatch_var->put_rec(&w2_nopatch[grid->kstart], nstats);
     // END PATCH STATS
+
+    // WUP STATS
+    wuparea_var->put_rec(&wuparea[grid->kstart], nstats);
+    u2_wup_var->put_rec(&u2_wup[grid->kstart], nstats);
+    v2_wup_var->put_rec(&v2_wup[grid->kstart], nstats);
+    w2_wup_var->put_rec(&w2_wup[grid->kstart], nstats);
+
+    u2_nowup_var->put_rec(&u2_nowup[grid->kstart], nstats);
+    v2_nowup_var->put_rec(&v2_nowup[grid->kstart], nstats);
+    w2_nowup_var->put_rec(&w2_nowup[grid->kstart], nstats);
+    // END WUP STATS
 
     u3_var->put_rec(&u3[grid->kstart], nstats);
     v3_var->put_rec(&v3[grid->kstart], nstats);
@@ -357,7 +402,7 @@ int cstats_les::calcmean(double * restrict data, double * restrict prof, double 
   return 0;
 }
 
-int cstats_les::calcfilter(double * restrict filter, int * restrict nfilter, double * restrict data, double * restrict databot)
+int cstats_les::calcfilter(double * restrict filter, double * restrict area, int * restrict nfilter, double * restrict databot)
 {
   int ijk,ij,ii,jj,kk;
 
@@ -381,6 +426,46 @@ int cstats_les::calcfilter(double * restrict filter, int * restrict nfilter, dou
         filter[ijk] = (double)ntmp;
       }
   }
+
+  int ijtot = grid->itot*grid->jtot;
+  mpi->sum(nfilter, grid->kcells);
+
+  for(int k=grid->kstart; k<grid->kend+1; k++)
+    area[k] = (double)nfilter[k] / (double)ijtot;
+
+  return 0;
+}
+
+int cstats_les::calcfilter2(double * restrict filter, double * restrict area, int * restrict nfilter, double * restrict w)
+{
+  int ijk,ij,ii,jj,kk;
+
+  ii = 1;
+  jj = grid->icells;
+  kk = grid->icells*grid->jcells;
+
+  int ntmp;
+
+  for(int k=grid->kstart; k<grid->kend+1; k++)
+  {
+    nfilter[k] = 0;
+    for(int j=grid->jstart; j<grid->jend; j++)
+#pragma ivdep
+      for(int i=grid->istart; i<grid->iend; i++)
+      {
+        ij  = i + j*jj;
+        ijk = i + j*jj + k*kk;
+        ntmp = (w[ijk] > 0.);
+        nfilter[k] += ntmp;
+        filter[ijk] = (double)ntmp;
+      }
+  }
+
+  int ijtot = grid->itot*grid->jtot;
+  mpi->sum(nfilter, grid->kcells);
+
+  for(int k=grid->kstart; k<grid->kend+1; k++)
+    area[k] = (double)nfilter[k] / (double)ijtot;
 
   return 0;
 }
@@ -408,16 +493,16 @@ int cstats_les::calcmoment_filter(double * restrict filter, double * restrict da
       }
   }
 
-  double n = grid->imax*grid->jmax;
+  mpi->sum(prof0, grid->kcells);
+  mpi->sum(prof1, grid->kcells);
 
+  double n = grid->itot*grid->jtot;
   for(int k=grid->kstart; k<grid->kend+a; k++)
   {
-    prof0[k] /= (double)nfilter[k];
-    prof1[k] /= (double)(n-nfilter[k]);
+    // avoid zero divisions in case the filter sum equals zero
+    prof0[k] /= ((double)nfilter[k] + dsmall);
+    prof1[k] /= ((double)(n-nfilter[k]) + dsmall);
   }
-
-  grid->getprof(prof0, grid->kcells);
-  grid->getprof(prof1, grid->kcells);
 
   return 0;
 }
