@@ -33,9 +33,11 @@ class cstats_les
     NcVar  *u2_var, *v2_var, *w2_var, *s2_var;
 
     NcVar  *patcharea_var;
+    NcVar  *w_patch_var, *w_nopatch_var;
     NcVar  *u2_patch_var, *v2_patch_var, *w2_patch_var, *s2_patch_var;
     NcVar  *u2_nopatch_var, *v2_nopatch_var, *w2_nopatch_var, *s2_nopatch_var;
     NcVar  *wuparea_var;
+    NcVar  *w_wup_var, *w_nowup_var;
     NcVar  *u2_wup_var, *v2_wup_var, *w2_wup_var, *s2_wup_var;
     NcVar  *u2_nowup_var, *v2_nowup_var, *w2_nowup_var, *s2_nowup_var;
 
@@ -52,11 +54,13 @@ class cstats_les
 
     int *nfilter;
     double *patcharea;
+    double *w_patch, *w_nopatch;
     double *u2_patch, *v2_patch, *w2_patch, *s2_patch;
     double *u2_nopatch, *v2_nopatch, *w2_nopatch, *s2_nopatch;
 
     int *nfilter2;
     double *wuparea;
+    double *w_wup, *w_nowup;
     double *u2_wup, *v2_wup, *w2_wup, *s2_wup;
     double *u2_nowup, *v2_nowup, *w2_nowup, *s2_nowup;
 
@@ -68,6 +72,7 @@ class cstats_les
 
     int calcfilter       (double *, double *, int *, double *);
     int calcfilter2      (double *, double *, int *, double *);
+    int calcmean_filter  (double *, double *, double *, double *, int *, double);
     int calcmoment_filter(double *, double *, double *, double *, double *, int *, double, int);
 
     int calcmean     (double *, double *, double);

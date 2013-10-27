@@ -81,9 +81,11 @@ int cstats_les::init()
   // PATCH STATS
   nfilter = new int[grid->kcells]; 
   patcharea = new double[grid->kcells];
+  w_patch = new double[grid->kcells];
   u2_patch = new double[grid->kcells];
   v2_patch = new double[grid->kcells];
   w2_patch = new double[grid->kcells];
+  w_nopatch = new double[grid->kcells];
   u2_nopatch = new double[grid->kcells];
   v2_nopatch = new double[grid->kcells];
   w2_nopatch = new double[grid->kcells];
@@ -92,9 +94,11 @@ int cstats_les::init()
   // WUP STATS
   nfilter2 = new int[grid->kcells]; 
   wuparea = new double[grid->kcells];
+  w_wup = new double[grid->kcells];
   u2_wup = new double[grid->kcells];
   v2_wup = new double[grid->kcells];
   w2_wup = new double[grid->kcells];
+  w_nowup = new double[grid->kcells];
   u2_nowup = new double[grid->kcells];
   v2_nowup = new double[grid->kcells];
   w2_nowup = new double[grid->kcells];
@@ -257,6 +261,8 @@ int cstats_les::exec(int iteration, double time)
   // PATCH STATS
   calcfilter(fields->s["tmp1"]->data, patcharea, nfilter, fields->s["s"]->datafluxbot);
   // calc variances
+  calcmean_filter(fields->s["tmp1"]->data, fields->w->data, w_patch, w_nopatch, nfilter, 0);
+
   calcmoment_filter(fields->s["tmp1"]->data, fields->u->data, u, u2_patch, u2_nopatch, nfilter, 2., 0);
   calcmoment_filter(fields->s["tmp1"]->data, fields->v->data, v, v2_patch, v2_nopatch, nfilter, 2., 0);
   calcmoment_filter(fields->s["tmp1"]->data, fields->w->data, w, w2_patch, w2_nopatch, nfilter, 2., 1);
@@ -466,6 +472,42 @@ int cstats_les::calcfilter2(double * restrict filter, double * restrict area, in
 
   for(int k=grid->kstart; k<grid->kend+1; k++)
     area[k] = (double)nfilter[k] / (double)ijtot;
+
+  return 0;
+}
+
+int cstats_les::calcmean_filter(double * restrict filter,  double * restrict data, double * restrict prof0, double * restrict prof1, int * restrict nfilter, double offset)
+{
+  int ijk,ii,jj,kk;
+
+  ii = 1;
+  jj = grid->icells;
+  kk = grid->icells*grid->jcells;
+  
+  for(int k=0; k<grid->kcells; k++)
+  {
+    prof0[k] = 0.;
+    prof1[k] = 0.;
+    for(int j=grid->jstart; j<grid->jend; j++)
+#pragma ivdep
+      for(int i=grid->istart; i<grid->iend; i++)
+      {
+        ijk  = i + j*jj + k*kk;
+        prof0[k] += filter[ijk]*(data[ijk] + offset);
+        prof1[k] += (1.-filter[ijk])*(data[ijk] + offset);
+      }
+  }
+
+  mpi->sum(prof0, grid->kcells);
+  mpi->sum(prof1, grid->kcells);
+
+  double n = grid->itot*grid->jtot;
+  for(int k=0; k<grid->kcells; k++)
+  {
+    // avoid zero divisions in case the filter sum equals zero
+    prof0[k] /= ((double)nfilter[k] + dsmall);
+    prof1[k] /= ((double)(n-nfilter[k]) + dsmall);
+  }
 
   return 0;
 }
