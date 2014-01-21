@@ -34,6 +34,7 @@
 #define BC_DIRICHLET 0
 #define BC_NEUMANN 1
 #define BC_FLUX 2
+#define BC_ROBIN 4
 
 cboundary_user::cboundary_user(cmodel *modelin) : cboundary(modelin)
 {
@@ -43,7 +44,7 @@ int cboundary_user::readinifile(cinput *inputin)
 {
   int nerror = 0;
 
-  processbcs(inputin);
+  nerror += processbcs(inputin);
 
   // patch type
   nerror += inputin->getItem(&patch_dim,  "boundary", "patch_dim" , "", 2 );
@@ -71,7 +72,8 @@ int cboundary_user::setvalues()
   for(fieldmap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
   {
     setbc_patch(it->second->databot, it->second->datagradbot, it->second->datafluxbot,
-                sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, NO_OFFSET, fields->s["tmp1"]->data, patch_facl, patch_facr);
+                sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, NO_OFFSET, fields->s["tmp1"]->data, patch_facl, patch_facr,
+                sbc[it->first]->facdirbot, sbc[it->first]->facneubot, sbc[it->first]->abot, sbc[it->first]->bbot, sbc[it->first]->cbot);
     setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, NO_OFFSET,
           sbc[it->first]->facdirtop, sbc[it->first]->facneutop, sbc[it->first]->atop, sbc[it->first]->btop, sbc[it->first]->ctop);
   }
@@ -80,7 +82,8 @@ int cboundary_user::setvalues()
 }
 
 int cboundary_user::setbc_patch(double * restrict a, double * restrict agrad, double * restrict aflux, int sw, double aval, double visc, double offset,
-                                double * restrict tmp, double facl, double facr)
+                                double * restrict tmp, double facl, double facr,
+                                double raval, double rbval, double * restrict ra, double * restrict rb, double * restrict rc)
 {
   double avall, avalr;
   double xmod, ymod;
@@ -141,6 +144,18 @@ int cboundary_user::setbc_patch(double * restrict a, double * restrict agrad, do
         ij = i + j*jj;
         aflux[ij] = avall + (avalr-avall)*tmp[ij];
         agrad[ij] = -aval/visc;
+      }
+  }
+  else if(sw = BC_ROBIN)
+  {
+    for(int j=0; j<grid->jcells; ++j)
+#pragma ivdep
+      for(int i=0; i<grid->icells; ++i)
+      {
+        ij = i + j*jj;
+        ra[ij] = raval*tmp[ij];
+        rb[ij] = rbval*(1.-tmp[ij]);
+        rc[ij] = aval;
       }
   }
 

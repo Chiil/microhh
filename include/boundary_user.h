@@ -37,7 +37,8 @@ class cboundary_user : public cboundary
 
   private:
     int setbc_patch(double *, double *, double *, int, double, double, double,
-                    double *, double, double); ///< Set the values for the boundary fields.
+                    double *, double, double,
+                    double, double, double *, double *, double *);///< Set the values for the boundary fields.
 
     // patch type
     int    patch_dim;
