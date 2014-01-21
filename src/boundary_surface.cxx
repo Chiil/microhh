@@ -162,26 +162,34 @@ int cboundary_surface::load(int iotime)
 int cboundary_surface::setvalues()
 {
   // grid transformation is properly taken into account by setting the databot and top values
-  setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, surfmbcbot, NO_VELOCITY, fields->visc, grid->utrans);
-  setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, surfmbcbot, NO_VELOCITY, fields->visc, grid->vtrans);
+  // in case the momentum has a fixed ustar, set the value to that of the input
+  setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->utrans,
+        sbc["u"]->facdirbot, sbc["u"]->facneubot, sbc["u"]->abot, sbc["u"]->bbot, sbc["u"]->cbot);
+  setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->vtrans,
+        sbc["v"]->facdirbot, sbc["v"]->facneubot, sbc["v"]->abot, sbc["v"]->bbot, sbc["v"]->cbot);
 
-  setbc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->utrans);
-  setbc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->vtrans);
+  setbc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->utrans,
+        sbc["u"]->facdirtop, sbc["u"]->facneutop, sbc["u"]->atop, sbc["u"]->btop, sbc["u"]->ctop);
+  setbc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->vtrans,
+        sbc["v"]->facdirtop, sbc["v"]->facneutop, sbc["v"]->atop, sbc["v"]->btop, sbc["v"]->ctop);
 
   for(fieldmap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
   {
-    setbc(it->second->databot, it->second->datagradbot, it->second->datafluxbot, surfsbcbot[it->first], sbc[it->first]->bot, it->second->visc, NO_OFFSET);
-    setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, NO_OFFSET);
+    setbc(it->second->databot, it->second->datagradbot, it->second->datafluxbot, sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, NO_OFFSET,
+          sbc[it->first]->facdirbot, sbc[it->first]->facneubot, sbc[it->first]->abot, sbc[it->first]->bbot, sbc[it->first]->cbot);
+    setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, NO_OFFSET,
+          sbc[it->first]->facdirtop, sbc[it->first]->facneutop, sbc[it->first]->atop, sbc[it->first]->btop, sbc[it->first]->ctop);
   }
 
-  // in case the momentum has a fixed ustar, set the value to that of the input
   if(surfmbcbot == BC_USTAR)
   {
     int ij,jj;
     jj = grid->icells;
 
-    setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, 0, NO_VELOCITY, fields->visc, grid->utrans);
-    setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, 0, NO_VELOCITY, fields->visc, grid->vtrans);
+    setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, 0, NO_VELOCITY, fields->visc, grid->utrans,
+        sbc["u"]->facdirbot, sbc["u"]->facneubot, sbc["u"]->abot, sbc["u"]->bbot, sbc["u"]->cbot);
+    setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, 0, NO_VELOCITY, fields->visc, grid->vtrans,
+        sbc["v"]->facdirbot, sbc["v"]->facneubot, sbc["v"]->abot, sbc["v"]->bbot, sbc["v"]->cbot);
 
     for(int j=0; j<grid->jcells; ++j)
 #pragma ivdep

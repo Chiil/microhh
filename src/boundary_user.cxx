@@ -58,18 +58,22 @@ int cboundary_user::readinifile(cinput *inputin)
 
 int cboundary_user::setvalues()
 {
-  setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->utrans);
-  setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->vtrans);
+  setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->utrans,
+        sbc["u"]->facdirbot, sbc["u"]->facneubot, sbc["u"]->abot, sbc["u"]->bbot, sbc["u"]->cbot);
+  setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->vtrans,
+        sbc["v"]->facdirbot, sbc["v"]->facneubot, sbc["v"]->abot, sbc["v"]->bbot, sbc["v"]->cbot);
 
-  setbc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->utrans);
-  setbc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->vtrans);
+  setbc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->utrans,
+        sbc["u"]->facdirtop, sbc["u"]->facneutop, sbc["u"]->atop, sbc["u"]->btop, sbc["u"]->ctop);
+  setbc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->vtrans,
+        sbc["v"]->facdirtop, sbc["v"]->facneutop, sbc["v"]->atop, sbc["v"]->btop, sbc["v"]->ctop);
 
   for(fieldmap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
   {
     setbc_patch(it->second->databot, it->second->datagradbot, it->second->datafluxbot,
                 sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, NO_OFFSET, fields->s["tmp1"]->data, patch_facl, patch_facr);
-    setbc      (it->second->datatop, it->second->datagradtop, it->second->datafluxtop,
-                sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, NO_OFFSET);
+    setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, NO_OFFSET,
+          sbc[it->first]->facdirtop, sbc[it->first]->facneutop, sbc[it->first]->atop, sbc[it->first]->btop, sbc[it->first]->ctop);
   }
 
   return 0;

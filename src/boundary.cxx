@@ -190,16 +190,22 @@ int cboundary::load(int iotime)
 
 int cboundary::setvalues()
 {
-  setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->utrans);
-  setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->vtrans);
+  setbc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->utrans,
+        sbc["u"]->facdirbot, sbc["u"]->facneubot, sbc["u"]->abot, sbc["u"]->bbot, sbc["u"]->cbot);
+  setbc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, mbcbot, NO_VELOCITY, fields->visc, grid->vtrans,
+        sbc["v"]->facdirbot, sbc["v"]->facneubot, sbc["v"]->abot, sbc["v"]->bbot, sbc["v"]->cbot);
 
-  setbc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->utrans);
-  setbc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->vtrans);
+  setbc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->utrans,
+        sbc["u"]->facdirtop, sbc["u"]->facneutop, sbc["u"]->atop, sbc["u"]->btop, sbc["u"]->ctop);
+  setbc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, NO_VELOCITY, fields->visc, grid->vtrans,
+        sbc["v"]->facdirtop, sbc["v"]->facneutop, sbc["v"]->atop, sbc["v"]->btop, sbc["v"]->ctop);
 
   for(fieldmap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
   {
-    setbc(it->second->databot, it->second->datagradbot, it->second->datafluxbot, sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, NO_OFFSET);
-    setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, NO_OFFSET);
+    setbc(it->second->databot, it->second->datagradbot, it->second->datafluxbot, sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, NO_OFFSET,
+          sbc[it->first]->facdirbot, sbc[it->first]->facneubot, sbc[it->first]->abot, sbc[it->first]->bbot, sbc[it->first]->cbot);
+    setbc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, NO_OFFSET,
+          sbc[it->first]->facdirtop, sbc[it->first]->facneutop, sbc[it->first]->atop, sbc[it->first]->btop, sbc[it->first]->ctop);
   }
 
   return 0;
@@ -264,7 +270,8 @@ int cboundary::bcvalues()
   return 0;
 }
 
-int cboundary::setbc(double * restrict a, double * restrict agrad, double * restrict aflux, int sw, double aval, double visc, double offset)
+int cboundary::setbc(double * restrict a, double * restrict agrad, double * restrict aflux, int sw, double aval, double visc, double offset,
+                     double raval, double rbval, double * restrict ra, double * restrict rb, double * restrict rc)
 {
   int ij,jj;
   jj = grid->icells;
@@ -299,6 +306,18 @@ int cboundary::setbc(double * restrict a, double * restrict agrad, double * rest
         ij = i + j*jj;
         aflux[ij] = aval;
         agrad[ij] = -aval/visc;
+      }
+  }
+  else if(sw == BC_ROBIN)
+  {
+    for(int j=0; j<grid->jcells; ++j)
+#pragma ivdep
+      for(int i=0; i<grid->icells; ++i)
+      {
+        ij = i + j*jj;
+        ra[ij] = raval;
+        rb[ij] = rbval;
+        rc[ij] = aval;
       }
   }
 
