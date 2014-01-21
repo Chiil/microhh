@@ -36,6 +36,7 @@
 #define BC_NEUMANN 1
 #define BC_FLUX 2
 #define BC_USTAR 3
+#define BC_ROBIN 4
 
 cboundary::cboundary(cmodel *modelin)
 {
@@ -121,6 +122,12 @@ int cboundary::processbcs(cinput *inputin)
       sbc[it->first]->bcbot = BC_NEUMANN;
     else if(swbot == "flux")
       sbc[it->first]->bcbot = BC_FLUX;
+    else if(swtop == "robin")
+    {
+      sbc[it->first]->bcbot = BC_ROBIN;
+      nerror += inputin->getItem(&sbc[it->first]->robdirbot, "boundary", "srobdirbot", it->first);
+      nerror += inputin->getItem(&sbc[it->first]->robneubot, "boundary", "srobneubot", it->first);
+    }
     else
     {
       if(master->mpiid == 0) std::printf("ERROR %s is illegal value for sbcbot\n", swbot.c_str());
@@ -134,6 +141,12 @@ int cboundary::processbcs(cinput *inputin)
       sbc[it->first]->bctop = BC_NEUMANN;
     else if(swtop == "flux")
       sbc[it->first]->bctop = BC_FLUX;
+    else if(swtop == "robin")
+    {
+      sbc[it->first]->bctop = BC_ROBIN;
+      nerror += inputin->getItem(&sbc[it->first]->robdirtop, "boundary", "srobdirtop", it->first);
+      nerror += inputin->getItem(&sbc[it->first]->robneutop, "boundary", "srobneutop", it->first);
+    }
     else
     {
       if(master->mpiid == 0) std::printf("ERROR %s is illegal value for sbctop\n", swtop.c_str());

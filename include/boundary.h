@@ -37,6 +37,10 @@ struct field3dbc
   double top; ///< Value of the top boundary.
   int bcbot;  ///< Switch for the bottom boundary.
   int bctop;  ///< Switch for the top boundary.
+  double robdirbot; ///< Multiplication factor of the Dirichlet part of the Robin BC.
+  double robneubot; ///< Multiplication factor of the Neumann part of the Robin BC.
+  double robdirtop; ///< Multiplication factor of the Dirichlet part of the Robin BC.
+  double robneutop; ///< Multiplication factor of the Neumann part of the Robin BC.
 };
 
 /**
