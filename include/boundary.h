@@ -82,7 +82,8 @@ class cboundary
     bcmap sbc;
 
     int processbcs(cinput *); ///< Process the boundary condition settings from the ini file.
-    int setbc(double *, double *, double *, int, double, double, double); ///< Set the values for the boundary fields.
+    int setbc(double *, double *, double *, int, double, double, double,
+              double, double, double *, double *, double *); ///< Set the values for the boundary fields.
 
   private:
     virtual int bcvalues(); ///< Update the boundary values.
