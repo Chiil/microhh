@@ -37,10 +37,16 @@ struct field3dbc
   double top; ///< Value of the top boundary.
   int bcbot;  ///< Switch for the bottom boundary.
   int bctop;  ///< Switch for the top boundary.
-  double robdirbot; ///< Multiplication factor of the Dirichlet part of the Robin BC.
-  double robneubot; ///< Multiplication factor of the Neumann part of the Robin BC.
-  double robdirtop; ///< Multiplication factor of the Dirichlet part of the Robin BC.
-  double robneutop; ///< Multiplication factor of the Neumann part of the Robin BC.
+  double facdirbot; ///< Multiplication factor of the Dirichlet part of the Robin BC.
+  double facneubot; ///< Multiplication factor of the Neumann part of the Robin BC.
+  double facdirtop; ///< Multiplication factor of the Dirichlet part of the Robin BC.
+  double facneutop; ///< Multiplication factor of the Neumann part of the Robin BC.
+  double *abot;
+  double *bbot;
+  double *cbot;
+  double *atop;
+  double *btop;
+  double *ctop;
 };
 
 /**
@@ -84,8 +90,10 @@ class cboundary
 
     int setgcbot_2nd(double *, double *, int, double *, double *); ///< Set the bottom ghost cells with 2nd-order accuracy.
     int setgctop_2nd(double *, double *, int, double *, double *); ///< Set the top ghost cells with 2nd-order accuracy.
-    int setgcbot_4th(double *, double *, int, double *, double *); ///< Set the bottom ghost cells with 4th-order accuracy.
-    int setgctop_4th(double *, double *, int, double *, double *); ///< Set the top ghost cells with 4th-order accuracy.
+    // int setgcbot_4th(double *, double *, int, double *, double *); ///< Set the bottom ghost cells with 4th-order accuracy.
+    // int setgctop_4th(double *, double *, int, double *, double *); ///< Set the top ghost cells with 4th-order accuracy.
+    int setgcbot_4th(double *, double *, int, double *, double *, double *, double *, double *); ///< Set the bottom ghost cells with 4th-order accuracy.
+    int setgctop_4th(double *, double *, int, double *, double *, double *, double *, double *); ///< Set the top ghost cells with 4th-order accuracy.
 
     int setgcbotw_4th(double *); ///< Set the bottom ghost cells for the vertical velocity with 4th order accuracy.
     int setgctopw_4th(double *); ///< Set the top ghost cells for the vertical velocity with 4th order accuracy.

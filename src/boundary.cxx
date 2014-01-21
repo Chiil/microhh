@@ -125,8 +125,8 @@ int cboundary::processbcs(cinput *inputin)
     else if(swtop == "robin")
     {
       sbc[it->first]->bcbot = BC_ROBIN;
-      nerror += inputin->getItem(&sbc[it->first]->robdirbot, "boundary", "srobdirbot", it->first);
-      nerror += inputin->getItem(&sbc[it->first]->robneubot, "boundary", "srobneubot", it->first);
+      nerror += inputin->getItem(&sbc[it->first]->facdirbot, "boundary", "sfacdirbot", it->first);
+      nerror += inputin->getItem(&sbc[it->first]->facneubot, "boundary", "sfacneubot", it->first);
     }
     else
     {
@@ -144,8 +144,8 @@ int cboundary::processbcs(cinput *inputin)
     else if(swtop == "robin")
     {
       sbc[it->first]->bctop = BC_ROBIN;
-      nerror += inputin->getItem(&sbc[it->first]->robdirtop, "boundary", "srobdirtop", it->first);
-      nerror += inputin->getItem(&sbc[it->first]->robneutop, "boundary", "srobneutop", it->first);
+      nerror += inputin->getItem(&sbc[it->first]->facdirtop, "boundary", "sfacdirtop", it->first);
+      nerror += inputin->getItem(&sbc[it->first]->facneutop, "boundary", "sfacneutop", it->first);
     }
     else
     {
@@ -159,6 +159,22 @@ int cboundary::processbcs(cinput *inputin)
 
 int cboundary::init()
 {
+  for(fieldmap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
+  {
+    if(sbc[it->first]->bcbot = BC_ROBIN)
+    {
+      sbc[it->first]->abot = new double[grid->ijcells];
+      sbc[it->first]->bbot = new double[grid->ijcells];
+      sbc[it->first]->cbot = new double[grid->ijcells];
+    }
+
+    if(sbc[it->first]->bctop = BC_ROBIN)
+    {
+      sbc[it->first]->atop = new double[grid->ijcells];
+      sbc[it->first]->btop = new double[grid->ijcells];
+      sbc[it->first]->ctop = new double[grid->ijcells];
+    }
+  }
   return 0;
 }
 
@@ -218,19 +234,25 @@ int cboundary::exec()
   }
   else if(grid->swspatialorder == "4")
   {
-    setgcbot_4th(fields->u->data, grid->z, mbcbot, fields->u->databot, fields->u->datagradbot);
-    setgctop_4th(fields->u->data, grid->z, mbctop, fields->u->datatop, fields->u->datagradtop);
+    setgcbot_4th(fields->u->data, grid->z, mbcbot, fields->u->databot, fields->u->datagradbot,
+                 sbc["u"]->abot, sbc["u"]->bbot, sbc["u"]->cbot);
+    setgctop_4th(fields->u->data, grid->z, mbctop, fields->u->datatop, fields->u->datagradtop,
+                 sbc["u"]->atop, sbc["u"]->btop, sbc["u"]->ctop);
 
-    setgcbot_4th(fields->v->data, grid->z, mbcbot, fields->v->databot, fields->v->datagradbot);
-    setgctop_4th(fields->v->data, grid->z, mbctop, fields->v->datatop, fields->v->datagradtop);
+    setgcbot_4th(fields->v->data, grid->z, mbcbot, fields->v->databot, fields->v->datagradbot,
+                 sbc["v"]->abot, sbc["v"]->bbot, sbc["v"]->cbot);
+    setgctop_4th(fields->v->data, grid->z, mbctop, fields->v->datatop, fields->v->datagradtop,
+                 sbc["v"]->atop, sbc["v"]->btop, sbc["v"]->ctop);
 
     setgcbotw_4th(fields->w->data);
     setgctopw_4th(fields->w->data);
 
     for(fieldmap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
     {
-      setgcbot_4th(it->second->data, grid->z, sbc[it->first]->bcbot, it->second->databot, it->second->datagradbot);
-      setgctop_4th(it->second->data, grid->z, sbc[it->first]->bctop, it->second->datatop, it->second->datagradtop);
+      setgcbot_4th(it->second->data, grid->z, sbc[it->first]->bcbot, it->second->databot, it->second->datagradbot,
+                   sbc[it->first]->abot, sbc[it->first]->bbot, sbc[it->first]->cbot);
+      setgctop_4th(it->second->data, grid->z, sbc[it->first]->bctop, it->second->datatop, it->second->datagradtop,
+                   sbc[it->first]->atop, sbc[it->first]->btop, sbc[it->first]->ctop);
     }
   }
 
@@ -354,7 +376,8 @@ int cboundary::setgctop_2nd(double * restrict a, double * restrict dzh, int sw, 
   return 0;
 }
 
-int cboundary::setgcbot_4th(double * restrict a, double * restrict z, int sw, double * restrict abot, double * restrict agradbot)
+int cboundary::setgcbot_4th(double * restrict a, double * restrict z, int sw, double * restrict abot, double * restrict agradbot,
+                            double * restrict ra, double * restrict rb, double * restrict rc)
 {
   int ij,ijk,jj,kk1,kk2,kstart;
 
@@ -363,6 +386,7 @@ int cboundary::setgcbot_4th(double * restrict a, double * restrict z, int sw, do
   kk2 = 2*grid->icells*grid->jcells;
 
   kstart = grid->kstart;
+  double zgrad;
 
   if(sw == BC_DIRICHLET)
   {
@@ -378,21 +402,38 @@ int cboundary::setgcbot_4th(double * restrict a, double * restrict z, int sw, do
   }
   else if(sw == BC_NEUMANN || sw == BC_FLUX)
   {
+    zgrad = grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1]);
     for(int j=0; j<grid->jcells; ++j)
 #pragma ivdep
       for(int i=0; i<grid->icells; ++i)
       {
         ij  = i + j*jj;
         ijk = i + j*jj + kstart*kk1;
-        a[ijk-kk1] = -(1./24.)*grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1])*agradbot[ij] + a[ijk    ];
-        a[ijk-kk2] = -(1./ 8.)*grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1])*agradbot[ij] + a[ijk+kk1];
+        a[ijk-kk1] = -(1./24.)*zgrad*agradbot[ij] + a[ijk    ];
+        a[ijk-kk2] = -(1./ 8.)*zgrad*agradbot[ij] + a[ijk+kk1];
+      }
+  }
+  else if(sw == BC_ROBIN);
+  {
+    zgrad = grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1]);
+    for(int j=0; j<grid->jcells; ++j)
+#pragma ivdep
+      for(int i=0; i<grid->icells; ++i)
+      {
+        ij  = i + j*jj;
+        ijk = i + j*jj + kstart*kk1;
+        a[ijk-kk1] = ( (8.*rc[ij] + ra[ij]*(a[ijk+kk1]-6.*a[ijk]))*zgrad - 192.*rb[ij]*a[ijk] )
+                   / ( 3.*ra[ij]*zgrad - 192.*rb[ij]);
+        a[ijk-kk2] = ( (8.*rc[ij] + ra[ij]*(2.*a[ijk+kk1]-9.*a[ijk]))*zgrad - 64.*rb[ij]*a[ijk+kk1] )
+                   / ( ra[ij]*zgrad - 64.*rb[ij]);
       }
   }
 
   return 0;
 }
 
-int cboundary::setgctop_4th(double * restrict a, double * restrict z, int sw, double * restrict atop, double * restrict agradtop)
+int cboundary::setgctop_4th(double * restrict a, double * restrict z, int sw, double * restrict atop, double * restrict agradtop,
+                            double * restrict ra, double * restrict rb, double * restrict rc)
 {
   int ij,ijk,jj,kend,kk1,kk2;
 
@@ -401,6 +442,8 @@ int cboundary::setgctop_4th(double * restrict a, double * restrict z, int sw, do
   jj  = grid->icells;
   kk1 = 1*grid->icells*grid->jcells;
   kk2 = 2*grid->icells*grid->jcells;
+
+  double zgrad;
 
   if(sw == BC_DIRICHLET)
   {
@@ -416,14 +459,30 @@ int cboundary::setgctop_4th(double * restrict a, double * restrict z, int sw, do
   }
   else if(sw == BC_NEUMANN || sw == BC_FLUX)
   {
+    zgrad = grad4x(z[kend-2], z[kend-1], z[kend], z[kend+1]);
     for(int j=0; j<grid->jcells; ++j)
 #pragma ivdep
       for(int i=0; i<grid->icells; ++i)
       {
         ij  = i + j*jj;
         ijk = i + j*jj + (kend-1)*kk1;
-        a[ijk+kk1] = (1./24.)*grad4x(z[kend-2], z[kend-1], z[kend], z[kend+1])*agradtop[ij] + a[ijk    ];
-        a[ijk+kk2] = (1./ 8.)*grad4x(z[kend-2], z[kend-1], z[kend], z[kend+1])*agradtop[ij] + a[ijk-kk1];
+        a[ijk+kk1] = (1./24.)*zgrad*agradtop[ij] + a[ijk    ];
+        a[ijk+kk2] = (1./ 8.)*zgrad*agradtop[ij] + a[ijk-kk1];
+      }
+  }
+  else if(sw == BC_ROBIN)
+  {
+    zgrad = grad4x(z[kend-2], z[kend-1], z[kend], z[kend+1]);
+    for(int j=0; j<grid->jcells; ++j)
+#pragma ivdep
+      for(int i=0; i<grid->icells; ++i)
+      {
+        ij  = i + j*jj;
+        ijk = i + j*jj + (kend-1)*kk1;
+        a[ijk+kk1] = ( (8.*rc[ij] + ra[ij]*(a[ijk-kk1]-6.*a[ijk]))*zgrad + 192.*rb[ij]*a[ijk] )
+                   / ( 3.*ra[ij]*zgrad + 192.*rb[ij]);
+        a[ijk+kk2] = ( (8.*rc[ij] + ra[ij]*(2.*a[ijk-kk1]-9.*a[ijk]))*zgrad + 64.*rb[ij]*a[ijk-kk1] )
+                   / ( ra[ij]*zgrad + 64.*rb[ij]);
       }
   }
 
