@@ -122,7 +122,7 @@ int cboundary::processbcs(cinput *inputin)
       sbc[it->first]->bcbot = BC_NEUMANN;
     else if(swbot == "flux")
       sbc[it->first]->bcbot = BC_FLUX;
-    else if(swtop == "robin")
+    else if(swbot == "robin")
     {
       sbc[it->first]->bcbot = BC_ROBIN;
       nerror += inputin->getItem(&sbc[it->first]->facdirbot, "boundary", "sfacdirbot", it->first);
@@ -159,16 +159,18 @@ int cboundary::processbcs(cinput *inputin)
 
 int cboundary::init()
 {
+  sbc["u"] = new field3dbc;
+  sbc["v"] = new field3dbc;
   for(fieldmap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
   {
-    if(sbc[it->first]->bcbot = BC_ROBIN)
+    if(sbc[it->first]->bcbot == BC_ROBIN)
     {
       sbc[it->first]->abot = new double[grid->ijcells];
       sbc[it->first]->bbot = new double[grid->ijcells];
       sbc[it->first]->cbot = new double[grid->ijcells];
     }
 
-    if(sbc[it->first]->bctop = BC_ROBIN)
+    if(sbc[it->first]->bctop == BC_ROBIN)
     {
       sbc[it->first]->atop = new double[grid->ijcells];
       sbc[it->first]->btop = new double[grid->ijcells];
@@ -432,7 +434,7 @@ int cboundary::setgcbot_4th(double * restrict a, double * restrict z, int sw, do
         a[ijk-kk2] = -(1./ 8.)*zgrad*agradbot[ij] + a[ijk+kk1];
       }
   }
-  else if(sw == BC_ROBIN);
+  else if(sw == BC_ROBIN)
   {
     zgrad = grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1]);
     for(int j=0; j<grid->jcells; ++j)
