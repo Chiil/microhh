@@ -96,9 +96,9 @@ int cboundary_user::setbc_patch(double * restrict a, double * restrict agrad, do
   avalr = facr*aval;
 
   // save the pattern
-  for(int j=grid->jstart; j<grid->jend; ++j)
+  for(int j=0; j<grid->jcells; ++j)
 #pragma ivdep
-    for(int i=grid->istart; i<grid->iend; ++i)
+    for(int i=0; i<grid->icells; ++i)
     {
       ij = i + j*jj;
       xmod = fmod(grid->x[i], patch_xh);
@@ -146,7 +146,7 @@ int cboundary_user::setbc_patch(double * restrict a, double * restrict agrad, do
         agrad[ij] = -aval/visc;
       }
   }
-  else if(sw = BC_ROBIN)
+  else if(sw == BC_ROBIN)
   {
     for(int j=0; j<grid->jcells; ++j)
 #pragma ivdep
