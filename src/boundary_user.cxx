@@ -155,7 +155,7 @@ int cboundary_user::setbc_patch(double * restrict a, double * restrict agrad, do
         ij = i + j*jj;
         ra[ij] = raval*tmp[ij];
         rb[ij] = rbval*(1.-tmp[ij]);
-        rc[ij] = aval;
+        rc[ij] = tmp[ij]*avalr + (1.-tmp[ij])*avall;
       }
   }
 
