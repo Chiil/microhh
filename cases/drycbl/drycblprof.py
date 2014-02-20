@@ -2,7 +2,7 @@ import numpy
 #from scipy.special import erf
 from pylab import *
 
-# set the height
+# set the height (ktot = 512)
 kmax = 512
 dn   = 1./kmax
 
@@ -17,6 +17,24 @@ nbuf2 = 72.*dn
 dz1 = 0.001
 dz2 = 0.002
 dz3 = 0.016
+
+# set the height (ktot = 1024)
+"""
+kmax = 1024
+dn   = 1./kmax
+
+n  = numpy.linspace(dn, 1.-dn, kmax)
+
+nloc1 = 150.*dn
+nbuf1 = 32.*dn
+
+nloc2 = 1024.*dn
+nbuf2 = 192.*dn
+
+dz1 = 0.0004 #z0 is calculated as 7.37e-4
+dz2 = 0.0009765625
+dz3 = 0.008
+"""
 
 dzdn1 = dz1/dn
 dzdn2 = dz2/dn

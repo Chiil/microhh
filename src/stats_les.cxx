@@ -21,6 +21,7 @@
 
 #include <cstdio>
 #include <cmath>
+#include "master.h"
 #include "grid.h"
 #include "fields.h"
 #include "stats_les.h"
@@ -300,8 +301,10 @@ int cstats_les::addprof(std::string name, std::string zloc)
       profs[name].ncvar = dataFile->add_var(name.c_str(), ncDouble, t_dim, zh_dim);
   }
 
-  // and allocate the memory
+  // and allocate the memory and initialize at zero
   profs[name].data = new double[grid->kcells];
+  for(int k=0; k<grid->kcells; ++k)
+    profs[name].data[k] = 0.;
 
   return 0;
 }
