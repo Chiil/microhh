@@ -210,46 +210,6 @@ void cmodel::save()
   boundary->save(timeloop->iotime);
 }
 
-
-// CvH TEMPORARY LOCATION, JUST TO TEST
-void cmodel::submitStats()
-{
-  master->printMessage("Submitting status on thread %d\n", omp_get_thread_num());
-  statsBusy = true;
-  #pragma omp flush(statsBusy)
-}
-
-bool cmodel::statsIsBusy()
-{
-  #pragma omp flush(statsBusy)
-  return statsBusy;
-}
-
-void cmodel::startScheduler()
-{
-  master->printMessage("Starting scheduler on thread %d\n", omp_get_thread_num());
-
-  // Initialize the status to not busy.
-  statsBusy = false;
-  #pragma omp flush(statsBusy)
-
-  while(true)
-  {
-    #pragma omp flush(statsBusy)
-    if(statsBusy)
-    {
-      master->printMessage("Starting stats and cross on thread %d\n", omp_get_thread_num());
-      usleep(5e6); // Wait for 5 sec for testing.
-      master->printMessage("Done with stats and cross on thread %d\n", omp_get_thread_num());
-
-      statsBusy = false;
-      #pragma omp flush(statsBusy)
-    }
-  }
-  master->printMessage("Closing scheduler on thread %d\n", omp_get_thread_num());
-}
-// CvH END TEMP
-
 void cmodel::exec()
 {
   master->printMessage("Starting time integration\n");
@@ -278,6 +238,7 @@ void cmodel::exec()
     {
       startScheduler();
     }
+
     // Run the main loop on thread number 0.
     if(omp_get_thread_num() == 0)
     {
@@ -310,42 +271,11 @@ void cmodel::exec()
             // Wait for stats and crosses to be done on thread 0 to avoid overwriting data
             while(statsIsBusy());
             submitStats();
-
-            /*
-            if(stats->dostats())
-            {
-              // always process the default mask
-              stats->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks["default"]);
-              calcstats("default");
-
-              // work through the potential masks for the statistics
-              for(std::vector<std::string>::const_iterator it=masklist.begin(); it!=masklist.end(); ++it)
-              {
-                if(*it == "wplus" || *it == "wmin")
-                {
-                  fields->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
-                  calcstats(*it);
-                }
-                else if(*it == "ql" || *it == "qlcore")
-                {
-                  thermo->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
-                  calcstats(*it);
-                }
-              }
-
-              // store the stats data
-              stats->exec(timeloop->iteration, timeloop->time, timeloop->itime);
-            }
-
-            if(cross->docross())
-            {
-              fields  ->execcross();
-              thermo  ->execcross();
-              boundary->execcross();
-            }
-            */
           }
         }
+
+        // In case of the CPU version, wait for the stats to finish
+        while(statsIsBusy());
 
         // exit the simulation when the runtime has been hit after the pressure calculation
         if(!timeloop->loop)
@@ -401,8 +331,45 @@ void cmodel::exec()
 
         printOutputFile(!timeloop->loop);
       } // End time loop.
+
+      endScheduler();
     } // End of thread 0 parallel region.
   } // End parallel region.
+}
+
+void cmodel::statsandcross()
+{
+  if(stats->dostats())
+  {
+    // always process the default mask
+    stats->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks["default"]);
+    calcstats("default");
+
+    // work through the potential masks for the statistics
+    for(std::vector<std::string>::const_iterator it=masklist.begin(); it!=masklist.end(); ++it)
+    {
+      if(*it == "wplus" || *it == "wmin")
+      {
+        fields->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
+        calcstats(*it);
+      }
+      else if(*it == "ql" || *it == "qlcore")
+      {
+        thermo->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
+        calcstats(*it);
+      }
+    }
+
+    // store the stats data
+    stats->exec(timeloop->iteration, timeloop->time, timeloop->itime);
+  }
+
+  if(cross->docross())
+  {
+    fields  ->execcross();
+    thermo  ->execcross();
+    boundary->execcross();
+  }
 }
 
 void cmodel::calcstats(std::string maskname)
@@ -478,3 +445,53 @@ void cmodel::settimestep()
   timeloop->idtlim = std::min(timeloop->idtlim, cross->gettimelim(timeloop->itime));
   timeloop->settimestep();
 }
+
+// CvH TEMPORARY LOCATION, JUST TO TEST
+void cmodel::submitStats()
+{
+  // In case of a single thread, run the stats immediately and bypass the scheduler
+  if(omp_get_num_threads() == 1)
+  {
+    statsandcross();
+  }
+  else
+  {
+    statsBusy = true;
+    #pragma omp flush(statsBusy)
+  }
+}
+
+bool cmodel::statsIsBusy()
+{
+  #pragma omp flush(statsBusy)
+  return statsBusy;
+}
+
+void cmodel::startScheduler()
+{
+  master->printMessage("Starting scheduler on thread %d\n", omp_get_thread_num());
+  schedulerActive = true;
+
+  // Initialize the status to not busy.
+  statsBusy = false;
+  #pragma omp flush(statsBusy)
+
+  while(schedulerActive)
+  {
+    #pragma omp flush(statsBusy)
+    if(statsBusy)
+    {
+      statsandcross();
+      statsBusy = false;
+      #pragma omp flush(statsBusy)
+    }
+  }
+  master->printMessage("Closing scheduler on thread %d\n", omp_get_thread_num());
+}
+
+void cmodel::endScheduler()
+{
+  schedulerActive = false;
+  #pragma omp flush(schedulerActive)
+}
+// CvH END TEMP

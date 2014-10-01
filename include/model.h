@@ -90,9 +90,12 @@ class cmodel
     void settimestep();
 
     // Postprocessing scheduler
+    bool schedulerActive;
     bool statsBusy;
     bool statsIsBusy();
     void submitStats();
     void startScheduler();
+    void endScheduler();
+    void statsandcross();
 };
 #endif
