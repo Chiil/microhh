@@ -23,6 +23,8 @@
 #include <string>
 #include <cstdio>
 #include <algorithm>
+#include <unistd.h> // usleep
+#include <omp.h>
 #include "master.h"
 #include "grid.h"
 #include "fields.h"
@@ -217,7 +219,7 @@ void cmodel::save()
 
 void cmodel::exec()
 {
-#ifdef USECUDA
+  #ifdef USECUDA
   master  ->printMessage("Preparing the GPU\n");
   grid    ->prepareDevice();
   fields  ->prepareDevice();
@@ -227,7 +229,7 @@ void cmodel::exec()
   boundary->prepareDevice();
   diff    ->prepareDevice();
   force   ->prepareDevice();
-#endif
+  #endif
 
   master->printMessage("Starting time integration\n");
 
@@ -248,137 +250,164 @@ void cmodel::exec()
   // print the initial information
   printOutputFile(!timeloop->loop);
 
-  // start the time loop
-  while(true)
+  // Open the parallel region for OpenMP
+  #pragma omp parallel
   {
-    // determine the time step
-    if(!timeloop->insubstep())
-      settimestep();
-
-    // advection
-    advec->exec();
-    // diffusion
-    diff->exec();
-    // thermo
-    thermo->exec();
-    // buffer
-    buffer->exec();
-    // large scale forcings
-    force->exec(timeloop->getsubdt());
-
-    // pressure
-    pres->exec(timeloop->getsubdt());
-
-    // statistics when not in substep and not directly after restart
-    if(!timeloop->insubstep() && !((timeloop->iteration > 0) && (timeloop->itime == timeloop->istarttime)))
+    // In case a second thread exists, start the stats scheduler
+    if(omp_get_thread_num() == 1)
     {
-      if(stats->dostats())
+      startScheduler();
+    }
+
+    // Run the main loop on thread number 0.
+    if(omp_get_thread_num() == 0)
+    {
+      // start the time loop
+      while(true)
       {
-#ifdef USECUDA
-        fields->backwardDevice();
-        boundary->backwardDevice();
-#endif
+        // determine the time step
+        if(!timeloop->insubstep())
+          settimestep();
 
-        // always process the default mask
-        stats->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks["default"]);
-        calcstats("default");
+        // advection
+        advec->exec();
+        // diffusion
+        diff->exec();
+        // thermo
+        thermo->exec();
+        // buffer
+        buffer->exec();
+        // large scale forcings
+        force->exec(timeloop->getsubdt());
 
-        // work through the potential masks for the statistics
-        for(std::vector<std::string>::const_iterator it=masklist.begin(); it!=masklist.end(); ++it)
+        // pressure
+        pres->exec(timeloop->getsubdt());
+
+        // statistics when not in substep and not directly after restart
+        if(!timeloop->insubstep() && !((timeloop->iteration > 0) && (timeloop->itime == timeloop->istarttime)))
         {
-          if(*it == "wplus" || *it == "wmin")
+          if(stats->dostats() || cross->docross())
           {
-            fields->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
-            calcstats(*it);
-          }
-          else if(*it == "ql" || *it == "qlcore")
-          {
-            thermo->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
-            calcstats(*it);
+            // Wait for stats and crosses to be done on thread 0 to avoid overwriting data
+            while(statsIsBusy());
+
+            #ifdef USECUDA
+            fields->backwardDevice();
+            boundary->backwardDevice();
+            #endif
+
+            submitStats();
           }
         }
 
-        // store the stats data
-        stats->exec(timeloop->iteration, timeloop->time, timeloop->itime);
-      }
+        // In case of the CPU version, wait for the stats to finish
+        // while(statsIsBusy());
 
-      if(cross->docross())
-      {
-#ifdef USECUDA
-        fields->backwardDevice();
-        boundary->backwardDevice();
-#endif      
-      
-        fields  ->execcross();
-        thermo  ->execcross();
-        boundary->execcross();
-      }
-    }
+        // exit the simulation when the runtime has been hit after the pressure calculation
+        if(!timeloop->loop)
+          break;
 
-    // exit the simulation when the runtime has been hit after the pressure calculation
-    if(!timeloop->loop)
-      break;
+        // RUN MODE
+        if(master->mode == "run")
+        {
+          // integrate in time
+          timeloop->exec();
 
-    // RUN MODE
-    if(master->mode == "run")
+          // step the time step
+          if(!timeloop->insubstep())
+            timeloop->timestep();
+
+          // save the data for a restart
+          if(timeloop->dosave() && !timeloop->insubstep())
+          {
+            // Wait for stats and crosses to be done on thread 0 to avoid overwriting data
+            while(statsIsBusy());
+
+            #ifdef USECUDA
+            fields->backwardDevice();
+            boundary->backwardDevice();
+            #endif
+
+            // save the time data
+            timeloop->save(timeloop->iotime);
+            // save the fields
+            fields->save(timeloop->iotime);
+            // save the boundary data
+            boundary->save(timeloop->iotime);
+          }
+        }
+
+        // POST PROCESS MODE
+        else if(master->mode == "post")
+        {
+          // step to the next time step
+          timeloop->postprocstep();
+
+          // if simulation is done break
+          if(!timeloop->loop)
+            break;
+
+          // load the data
+          timeloop->load(timeloop->iotime);
+          fields  ->load(timeloop->iotime);
+          boundary->load(timeloop->iotime);
+        }
+        // update the time dependent values
+        boundary->settimedep();
+        force->settimedep();
+
+        // set the boundary conditions
+        boundary->exec();
+        // get the field means, in case needed
+        fields->exec();
+        // get the viscosity to be used in diffusion
+        diff->execvisc();
+
+        printOutputFile(!timeloop->loop);
+      } // End time loop.
+
+      endScheduler();
+
+      #ifdef USECUDA
+      fields->backwardDevice();
+      boundary->backwardDevice();
+      #endif
+    } // End of thread 0 parallel region.
+  } // End parallel region.
+}
+
+void cmodel::statsandcross()
+{
+  if(stats->dostats())
+  {
+    // always process the default mask
+    stats->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks["default"]);
+    calcstats("default");
+
+    // work through the potential masks for the statistics
+    for(std::vector<std::string>::const_iterator it=masklist.begin(); it!=masklist.end(); ++it)
     {
-      // integrate in time
-      timeloop->exec();
-
-      // step the time step
-      if(!timeloop->insubstep())
-        timeloop->timestep();
-
-      // save the data for a restart
-      if(timeloop->dosave() && !timeloop->insubstep())
+      if(*it == "wplus" || *it == "wmin")
       {
-#ifdef USECUDA
-        fields->backwardDevice();
-        boundary->backwardDevice();
-#endif
-
-        // save the time data
-        timeloop->save(timeloop->iotime);
-        // save the fields
-        fields->save(timeloop->iotime);
-        // save the boundary data
-        boundary->save(timeloop->iotime);
+        fields->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
+        calcstats(*it);
+      }
+      else if(*it == "ql" || *it == "qlcore")
+      {
+        thermo->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
+        calcstats(*it);
       }
     }
 
-    // POST PROCESS MODE
-    else if(master->mode == "post")
-    {
-      // step to the next time step
-      timeloop->postprocstep();
+    // store the stats data
+    stats->exec(timeloop->iteration, timeloop->time, timeloop->itime);
+  }
 
-      // if simulation is done break
-      if(!timeloop->loop)
-        break;
-
-      // load the data
-      timeloop->load(timeloop->iotime);
-      fields  ->load(timeloop->iotime);
-      boundary->load(timeloop->iotime);
-    }
-    // update the time dependent values
-    boundary->settimedep();
-    force->settimedep();
-
-    // set the boundary conditions
-    boundary->exec();
-    // get the field means, in case needed
-    fields->exec();
-    // get the viscosity to be used in diffusion
-    diff->execvisc();
-
-    printOutputFile(!timeloop->loop);
-  } // end time loop
-
-#ifdef USECUDA
-  fields->backwardDevice();
-  boundary->backwardDevice();
-#endif
+  if(cross->docross())
+  {
+    fields  ->execcross();
+    thermo  ->execcross();
+    boundary->execcross();
 }
 
 void cmodel::calcstats(std::string maskname)
@@ -454,3 +483,58 @@ void cmodel::settimestep()
   timeloop->idtlim = std::min(timeloop->idtlim, cross->gettimelim(timeloop->itime));
   timeloop->settimestep();
 }
+
+// CvH TEMPORARY LOCATION, JUST TO TEST
+void cmodel::submitStats()
+{
+  // In case of a single thread, run the stats immediately and bypass the scheduler
+  if(omp_get_num_threads() == 1)
+  {
+    statsandcross();
+  }
+  else
+  {
+    statsBusy = true;
+    #pragma omp flush(statsBusy)
+  }
+}
+
+bool cmodel::statsIsBusy()
+{
+  if(omp_get_num_threads() == 1)
+    return false;
+  else
+  {
+    #pragma omp flush(statsBusy)
+    return statsBusy;
+  }
+}
+
+void cmodel::startScheduler()
+{
+  master->printMessage("Starting scheduler on thread %d\n", omp_get_thread_num());
+  schedulerActive = true;
+
+  // Initialize the status to not busy.
+  statsBusy = false;
+  #pragma omp flush(statsBusy)
+
+  while(schedulerActive)
+  {
+    #pragma omp flush(statsBusy)
+    if(statsBusy)
+    {
+      statsandcross();
+      statsBusy = false;
+      #pragma omp flush(statsBusy)
+    }
+  }
+  master->printMessage("Closing scheduler on thread %d\n", omp_get_thread_num());
+}
+
+void cmodel::endScheduler()
+{
+  schedulerActive = false;
+  #pragma omp flush(schedulerActive)
+}
+// CvH END TEMP

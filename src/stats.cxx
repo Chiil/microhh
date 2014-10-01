@@ -183,9 +183,6 @@ int cstats::dostats()
   if(model->timeloop->itime % isampletime != 0)
     return 0;
 
-  // write message in case stats is triggered
-  if(master->mpiid == 0) std::printf("Saving stats for time %f\n", model->timeloop->time);
-
   // return true such that stats are computed
   return 1;
 }
@@ -197,6 +194,9 @@ int cstats::exec(int iteration, double time, unsigned long itime)
   // check if time for execution
   if(itime % isampletime != 0)
     return 0;
+
+  // write message in case stats is triggered
+  master->printMessage("Saving stats for time %f\n", model->timeloop->time);
 
   for(maskmap::iterator it=masks.begin(); it!=masks.end(); ++it)
   {
