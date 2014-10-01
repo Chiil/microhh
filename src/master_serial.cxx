@@ -22,6 +22,7 @@
 
 #ifndef PARALLEL
 #include <sys/time.h>
+#include <omp.h>
 #include "grid.h"
 #include "defines.h"
 #include "master.h"
@@ -34,7 +35,11 @@ cmaster::cmaster()
 
 cmaster::~cmaster()
 {
-  printMessage("Finished run on %d processes\n", nprocs);
+  #pragma omp parallel
+  {
+    if(omp_get_thread_num() == 0)
+      printMessage("Finished run on %d processes, %d threads\n", nprocs, omp_get_num_threads());
+  }
 }
 
 void cmaster::start(int argc, char *argv[])
@@ -46,7 +51,11 @@ void cmaster::start(int argc, char *argv[])
   // set the number of processes to 1
   nprocs = 1;
 
-  printMessage("Starting run on %d processes\n", nprocs);
+  #pragma omp parallel
+  {
+    if(omp_get_thread_num() == 0)
+      printMessage("Starting run on %d processes, %d threads\n", nprocs, omp_get_num_threads());
+  }
 
   // process the command line options
   if(argc <= 1)
