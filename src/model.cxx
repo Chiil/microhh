@@ -286,7 +286,7 @@ void cmodel::exec()
         // statistics when not in substep and not directly after restart
         if(!timeloop->insubstep() && !((timeloop->iteration > 0) && (timeloop->itime == timeloop->istarttime)))
         {
-          if(stats->dostats() || cross->docross())
+          if(stats->dostats()) // CvH FIX CROSS LATER || cross->docross())
           {
             // Wait for stats and crosses to be done on thread 0 to avoid overwriting data
             while(statsIsBusy());
@@ -378,7 +378,7 @@ void cmodel::exec()
 
 void cmodel::statsandcross()
 {
-  if(stats->dostats())
+  // if(stats->dostats())
   {
     // always process the default mask
     stats->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks["default"]);
@@ -403,11 +403,14 @@ void cmodel::statsandcross()
     stats->exec(timeloop->iteration, timeloop->time, timeloop->itime);
   }
 
+  /*
   if(cross->docross())
   {
     fields  ->execcross();
     thermo  ->execcross();
     boundary->execcross();
+  }
+  */
 }
 
 void cmodel::calcstats(std::string maskname)
@@ -502,7 +505,9 @@ void cmodel::submitStats()
 bool cmodel::statsIsBusy()
 {
   if(omp_get_num_threads() == 1)
+  {
     return false;
+  }
   else
   {
     #pragma omp flush(statsBusy)

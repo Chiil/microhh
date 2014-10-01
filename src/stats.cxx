@@ -191,9 +191,10 @@ int cstats::exec(int iteration, double time, unsigned long itime)
 {
   // this function is only called when stats are enabled no need for swstats check
 
+  // CvH disabled for overlapping stats and calculation, check this 
   // check if time for execution
-  if(itime % isampletime != 0)
-    return 0;
+  // if(itime % isampletime != 0)
+  //   return 0;
 
   // write message in case stats is triggered
   master->printMessage("Saving stats for time %f\n", model->timeloop->time);
