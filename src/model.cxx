@@ -23,6 +23,8 @@
 #include <string>
 #include <cstdio>
 #include <algorithm>
+#include <unistd.h> // usleep
+#include <omp.h>
 #include "master.h"
 #include "grid.h"
 #include "fields.h"
@@ -208,6 +210,46 @@ void cmodel::save()
   boundary->save(timeloop->iotime);
 }
 
+
+// CvH TEMPORARY LOCATION, JUST TO TEST
+void cmodel::submitStats()
+{
+  master->printMessage("Submitting status on thread %d\n", omp_get_thread_num());
+  statsBusy = true;
+  #pragma omp flush(statsBusy)
+}
+
+bool cmodel::statsIsBusy()
+{
+  #pragma omp flush(statsBusy)
+  return statsBusy;
+}
+
+void cmodel::startScheduler()
+{
+  master->printMessage("Starting scheduler on thread %d\n", omp_get_thread_num());
+
+  // Initialize the status to not busy.
+  statsBusy = false;
+  #pragma omp flush(statsBusy)
+
+  while(true)
+  {
+    #pragma omp flush(statsBusy)
+    if(statsBusy)
+    {
+      master->printMessage("Starting stats and cross on thread %d\n", omp_get_thread_num());
+      usleep(5e6); // Wait for 5 sec for testing.
+      master->printMessage("Done with stats and cross on thread %d\n", omp_get_thread_num());
+
+      statsBusy = false;
+      #pragma omp flush(statsBusy)
+    }
+  }
+  master->printMessage("Closing scheduler on thread %d\n", omp_get_thread_num());
+}
+// CvH END TEMP
+
 void cmodel::exec()
 {
   master->printMessage("Starting time integration\n");
@@ -228,117 +270,139 @@ void cmodel::exec()
   // print the initial information
   printOutputFile(!timeloop->loop);
 
-  // start the time loop
-  while(true)
+  // Open the parallel region for OpenMP
+  #pragma omp parallel
   {
-    // determine the time step
-    if(!timeloop->insubstep())
-      settimestep();
-
-    // advection
-    advec->exec();
-    // diffusion
-    diff->exec();
-    // thermo
-    thermo->exec();
-    // buffer
-    buffer->exec();
-    // large scale forcings
-    force->exec(timeloop->getsubdt());
-
-    // pressure
-    pres->exec(timeloop->getsubdt());
-
-    // statistics when not in substep and not directly after restart
-    if(!timeloop->insubstep() && !((timeloop->iteration > 0) && (timeloop->itime == timeloop->istarttime)))
+    // In case a second thread exists, start the stats scheduler
+    if(omp_get_thread_num() == 1)
     {
-      if(stats->dostats())
+      startScheduler();
+    }
+    // Run the main loop on thread number 0.
+    if(omp_get_thread_num() == 0)
+    {
+      // start the time loop
+      while(true)
       {
-        // always process the default mask
-        stats->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks["default"]);
-        calcstats("default");
+        // determine the time step
+        if(!timeloop->insubstep())
+          settimestep();
 
-        // work through the potential masks for the statistics
-        for(std::vector<std::string>::const_iterator it=masklist.begin(); it!=masklist.end(); ++it)
+        // advection
+        advec->exec();
+        // diffusion
+        diff->exec();
+        // thermo
+        thermo->exec();
+        // buffer
+        buffer->exec();
+        // large scale forcings
+        force->exec(timeloop->getsubdt());
+
+        // pressure
+        pres->exec(timeloop->getsubdt());
+
+        // statistics when not in substep and not directly after restart
+        if(!timeloop->insubstep() && !((timeloop->iteration > 0) && (timeloop->itime == timeloop->istarttime)))
         {
-          if(*it == "wplus" || *it == "wmin")
+          if(stats->dostats() || cross->docross())
           {
-            fields->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
-            calcstats(*it);
-          }
-          else if(*it == "ql" || *it == "qlcore")
-          {
-            thermo->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
-            calcstats(*it);
+            // Wait for stats and crosses to be done on thread 0 to avoid overwriting data
+            while(statsIsBusy());
+            submitStats();
+
+            /*
+            if(stats->dostats())
+            {
+              // always process the default mask
+              stats->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks["default"]);
+              calcstats("default");
+
+              // work through the potential masks for the statistics
+              for(std::vector<std::string>::const_iterator it=masklist.begin(); it!=masklist.end(); ++it)
+              {
+                if(*it == "wplus" || *it == "wmin")
+                {
+                  fields->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
+                  calcstats(*it);
+                }
+                else if(*it == "ql" || *it == "qlcore")
+                {
+                  thermo->getmask(fields->sd["tmp3"], fields->sd["tmp4"], &stats->masks[*it]);
+                  calcstats(*it);
+                }
+              }
+
+              // store the stats data
+              stats->exec(timeloop->iteration, timeloop->time, timeloop->itime);
+            }
+
+            if(cross->docross())
+            {
+              fields  ->execcross();
+              thermo  ->execcross();
+              boundary->execcross();
+            }
+            */
           }
         }
 
-        // store the stats data
-        stats->exec(timeloop->iteration, timeloop->time, timeloop->itime);
-      }
+        // exit the simulation when the runtime has been hit after the pressure calculation
+        if(!timeloop->loop)
+          break;
 
-      if(cross->docross())
-      {
-        fields  ->execcross();
-        thermo  ->execcross();
-        boundary->execcross();
-      }
-    }
+        // RUN MODE
+        if(master->mode == "run")
+        {
+          // integrate in time
+          timeloop->exec();
 
-    // exit the simulation when the runtime has been hit after the pressure calculation
-    if(!timeloop->loop)
-      break;
+          // step the time step
+          if(!timeloop->insubstep())
+            timeloop->timestep();
 
-    // RUN MODE
-    if(master->mode == "run")
-    {
-      // integrate in time
-      timeloop->exec();
+          // save the data for a restart
+          if(timeloop->dosave() && !timeloop->insubstep())
+          {
+            // save the time data
+            timeloop->save(timeloop->iotime);
+            // save the fields
+            fields->save(timeloop->iotime);
+            // save the boundary data
+            boundary->save(timeloop->iotime);
+          }
+        }
 
-      // step the time step
-      if(!timeloop->insubstep())
-        timeloop->timestep();
+        // POST PROCESS MODE
+        else if(master->mode == "post")
+        {
+          // step to the next time step
+          timeloop->postprocstep();
 
-      // save the data for a restart
-      if(timeloop->dosave() && !timeloop->insubstep())
-      {
-        // save the time data
-        timeloop->save(timeloop->iotime);
-        // save the fields
-        fields->save(timeloop->iotime);
-        // save the boundary data
-        boundary->save(timeloop->iotime);
-      }
-    }
+          // if simulation is done break
+          if(!timeloop->loop)
+            break;
 
-    // POST PROCESS MODE
-    else if(master->mode == "post")
-    {
-      // step to the next time step
-      timeloop->postprocstep();
+          // load the data
+          timeloop->load(timeloop->iotime);
+          fields  ->load(timeloop->iotime);
+          boundary->load(timeloop->iotime);
+        }
+        // update the time dependent values
+        boundary->settimedep();
+        force->settimedep();
 
-      // if simulation is done break
-      if(!timeloop->loop)
-        break;
+        // set the boundary conditions
+        boundary->exec();
+        // get the field means, in case needed
+        fields->exec();
+        // get the viscosity to be used in diffusion
+        diff->execvisc();
 
-      // load the data
-      timeloop->load(timeloop->iotime);
-      fields  ->load(timeloop->iotime);
-      boundary->load(timeloop->iotime);
-    }
-    // update the time dependent values
-    boundary->settimedep();
-    force->settimedep();
-
-    // set the boundary conditions
-    boundary->exec();
-    // get the field means, in case needed
-    fields->exec();
-    // get the viscosity to be used in diffusion
-    diff->execvisc();
-
-    printOutputFile(!timeloop->loop);
-  }
+        printOutputFile(!timeloop->loop);
+      } // End time loop.
+    } // End of thread 0 parallel region.
+  } // End parallel region.
 }
 
 void cmodel::calcstats(std::string maskname)

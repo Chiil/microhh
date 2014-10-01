@@ -88,5 +88,11 @@ class cmodel
     void printOutputFile(bool);
     void calcstats(std::string);
     void settimestep();
+
+    // Postprocessing scheduler
+    bool statsBusy;
+    bool statsIsBusy();
+    void submitStats();
+    void startScheduler();
 };
 #endif
