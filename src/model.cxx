@@ -463,8 +463,13 @@ void cmodel::submitStats()
 
 bool cmodel::statsIsBusy()
 {
-  #pragma omp flush(statsBusy)
-  return statsBusy;
+  if(omp_get_num_threads() == 1)
+    return false;
+  else
+  {
+    #pragma omp flush(statsBusy)
+    return statsBusy;
+  }
 }
 
 void cmodel::startScheduler()
