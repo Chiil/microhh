@@ -200,6 +200,10 @@ void ThermoMoistMicro::create(Input *inputin)
   }
 
   initStat();
+
+  // Add a moist bubble
+  initBubble(fields->sp["qt"]->data, fields->sp["thl"]->data,
+             pref, fields->atmp["tmp2"]->data);
 }
 
 #ifndef USECUDA
@@ -1102,4 +1106,67 @@ inline double ThermoMoistMicro::esat(const double T)
 {
   const double x=std::max(-80.,T-T0);
   return c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))));
+}
+
+inline double ThermoMoistMicro::qsat(const double thl, const double qt, const double p, const double exn)
+{
+  int niter = 0, nitermax = 30;
+  double tl, tnr_old = 1.e9, tnr, qs=0;
+  tl = thl * exn;
+  tnr = tl;
+  while (std::fabs(tnr-tnr_old)/tnr_old> 1e-5 && niter < nitermax)
+  {
+    ++niter;
+    tnr_old = tnr;
+    qs = qsat(p,tnr);
+    tnr = tnr - (tnr+(Lv/cp)*qs-tl-(Lv/cp)*qt)/(1+(std::pow(Lv,2)*qs)/ (Rv*cp*std::pow(tnr,2)));
+  }
+
+  if(niter == nitermax)
+  {  
+    printf("Saturation adjustment not converged!! [thl=%f K, qt=%f kg/kg, p=%f p]\n",thl,qt,p);
+    throw 1;
+  }  
+
+  return qs;
+}
+
+void ThermoMoistMicro::initBubble(double * restrict qt, double * restrict thl, 
+                                  double * restrict p,  double * restrict ql)
+{
+  int ijk,jj,kk,ij;
+  double exn;
+  jj = grid->icells;
+  kk = grid->ijcells;
+
+  for(int k=grid->kstart; k<grid->kend; k++)
+  {
+    exn = exner(p[k]);
+    for(int j=grid->jstart; j<grid->jend; j++)
+#pragma ivdep
+      for(int i=grid->istart; i<grid->iend; i++)
+      {
+        ij  = i + j*jj;
+        ijk = i + j*jj + k*kk;
+
+        // Set the required relative humidity.
+        const double xloc = 0.5*grid->xsize;
+        const double zloc = 800.;
+        const double rh0 = 0.2;
+        const double rh1 = 0.8;
+        const double pi = std::acos((double)-1.);
+
+        const double rad = std::pow(std::pow(grid->x[i]-xloc, 2) + std::pow(grid->z[k]-zloc, 2), 0.5);
+
+        double rh;
+        if (rad < 200.)
+          rh = 1.;
+        else if (rad < 300.) 
+          rh = rh0 + rh1 * std::pow(std::cos(0.5*pi * (rad - 200.)/100.), 2);
+        else
+          rh = rh0;
+
+        qt[ijk] = rh*qsat(thl[ijk], qt[ijk], p[k], exn);
+      }
+  }
 }

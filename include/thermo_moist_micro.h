@@ -91,14 +91,17 @@ class ThermoMoistMicro : public Thermo
                          double *, double *);
     void calcBuoyancyFluxBot(double *, double *, double *, double *, double *, double *);
 
-    inline double satAdjust(const double, const double, const double ,const double);
-    inline double buoyancy(const double, const double, const double, const double, const double);
-    inline double buoyancyNoql(const double, const double, const double);
-    inline double buoyancyFluxNoql(const double, const double, const double, const double, const double);
-    inline double exner(const double);
-    inline double exn2(const double);
-    inline double qsat(const double, const double);
-    inline double esat(const double);
+    void initBubble(double *, double *, double *, double *);
+
+    double satAdjust(const double, const double, const double ,const double);
+    double buoyancy(const double, const double, const double, const double, const double);
+    double buoyancyNoql(const double, const double, const double);
+    double buoyancyFluxNoql(const double, const double, const double, const double, const double);
+    double exner(const double);
+    double exn2(const double);
+    double qsat(const double, const double);
+    double qsat(const double, const double, const double ,const double);
+    double esat(const double);
 
     std::string swbasestate;
     double pbot;
