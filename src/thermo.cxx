@@ -33,6 +33,7 @@
 #include "thermo_buoy_slope.h"
 #include "thermo_dry.h"
 #include "thermo_moist.h"
+#include "thermo_moist_micro.h"
 
 Thermo::Thermo(Model *modelin, Input *inputin)
 {
@@ -110,6 +111,8 @@ Thermo* Thermo::factory(Master *masterin, Input *inputin, Model *modelin)
 
   if(swthermo== "moist")
     return new ThermoMoist(modelin, inputin);
+  else if(swthermo == "moist_micro")
+    return new ThermoMoistMicro(modelin, inputin);
   else if(swthermo == "buoy")
     return new ThermoBuoy(modelin, inputin);
   else if(swthermo == "dry")
