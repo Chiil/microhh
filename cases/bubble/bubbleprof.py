@@ -5,14 +5,14 @@ kmax  = 384
 zsize = 2400.
 dz = zsize / kmax
 
-dthetadz = 0.003
+dlnthetadz = 1.3e-5
 
 z = numpy.linspace(0.5*dz, zsize-0.5*dz, kmax)
 thl = numpy.zeros(numpy.size(z))
 
 # linearly stratified profile
 for k in range(kmax):
-  thl[k] = 300. + dthetadz*z[k]
+  thl[k] = numpy.exp(numpy.log(283.) + dlnthetadz*z[k])
 
 # write the data to a file
 proffile = open('bubble.prof','w')
