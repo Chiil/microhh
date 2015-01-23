@@ -100,7 +100,6 @@ class ThermoMoistMicro : public Thermo
     double exner(const double);
     double exn2(const double);
     double qsat(const double, const double);
-    double qsat(const double, const double, const double ,const double);
     double esat(const double);
 
     std::string swbasestate;

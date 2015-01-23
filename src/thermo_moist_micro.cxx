@@ -1108,29 +1108,6 @@ inline double ThermoMoistMicro::esat(const double T)
   return c0+x*(c1+x*(c2+x*(c3+x*(c4+x*(c5+x*(c6+x*(c7+x*c8)))))));
 }
 
-inline double ThermoMoistMicro::qsat(const double thl, const double qt, const double p, const double exn)
-{
-  int niter = 0, nitermax = 30;
-  double tl, tnr_old = 1.e9, tnr, qs=0;
-  tl = thl * exn;
-  tnr = tl;
-  while (std::fabs(tnr-tnr_old)/tnr_old> 1e-5 && niter < nitermax)
-  {
-    ++niter;
-    tnr_old = tnr;
-    qs = qsat(p,tnr);
-    tnr = tnr - (tnr+(Lv/cp)*qs-tl-(Lv/cp)*qt)/(1+(std::pow(Lv,2)*qs)/ (Rv*cp*std::pow(tnr,2)));
-  }
-
-  if(niter == nitermax)
-  {  
-    printf("Saturation adjustment not converged!! [thl=%f K, qt=%f kg/kg, p=%f p]\n",thl,qt,p);
-    throw 1;
-  }  
-
-  return qs;
-}
-
 void ThermoMoistMicro::initBubble(double * restrict qt, double * restrict thl, 
                                   double * restrict p,  double * restrict ql)
 {
@@ -1166,7 +1143,7 @@ void ThermoMoistMicro::initBubble(double * restrict qt, double * restrict thl,
         else
           rh = rh0;
 
-        qt[ijk] = rh*qsat(thl[ijk], qt[ijk], p[k], exn);
+        qt[ijk] = rh*qsat(p[k], thl[ijk]*exn);
       }
   }
 }
