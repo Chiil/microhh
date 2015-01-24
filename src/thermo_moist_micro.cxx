@@ -231,6 +231,9 @@ void ThermoMoistMicro::exec()
                          &fields->atmp["tmp2"]->data[0*kk], &fields->atmp["tmp2"]->data[1*kk], &fields->atmp["tmp2"]->data[2*kk],
                          thvrefh);
   }
+
+  master->printMessage("Thermo\n");
+  fields->checkSymmetry();
 }
 #endif
 

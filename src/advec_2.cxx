@@ -30,6 +30,7 @@
 #include "constants.h"
 #include "fd.h"
 #include "model.h"
+#include "master.h"
 
 using namespace fd::o2;
 
@@ -65,6 +66,9 @@ unsigned long Advec2::getTimeLimit(unsigned long idt, double dt)
 
 void Advec2::exec()
 {
+  master->printMessage("Start\n");
+  fields->checkSymmetry();
+
   advecu(fields->ut->data, fields->u->data, fields->v->data, fields->w->data, grid->dzi,
          fields->rhoref, fields->rhorefh);
   advecv(fields->vt->data, fields->u->data, fields->v->data, fields->w->data, grid->dzi,
@@ -75,6 +79,9 @@ void Advec2::exec()
   for(FieldMap::const_iterator it = fields->st.begin(); it!=fields->st.end(); it++)
     advecs(it->second->data, fields->sp[it->first]->data, fields->u->data, fields->v->data, fields->w->data,
            grid->dzi, fields->rhoref, fields->rhorefh);
+
+  master->printMessage("Advec\n");
+  fields->checkSymmetry();
 }
 #endif
 
@@ -109,7 +116,7 @@ double Advec2::calc_cfl(double * restrict u, double * restrict v, double * restr
 }
 
 void Advec2::advecu(double * restrict ut, double * restrict u, double * restrict v, double * restrict w,
-                      double * restrict dzi, double * restrict rhoref, double * restrict rhorefh)
+                    double * restrict dzi, double * restrict rhoref, double * restrict rhorefh)
 {
   int    ijk,ii,jj,kk;
   double dxi,dyi;

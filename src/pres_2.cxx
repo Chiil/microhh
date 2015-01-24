@@ -80,6 +80,10 @@ void Pres2::exec(double dt)
   // get the pressure tendencies from the pressure field
   output(fields->ut->data, fields->vt->data, fields->wt->data, 
          fields->sd["p"]->data, grid->dzhi);
+
+  master->printMessage("Pres\n");
+  master->printMessage("pressure: %d\n", fields->sd["p"]->isSymmetric());
+  fields->checkSymmetry();
 }
 #endif
 

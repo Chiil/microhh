@@ -123,8 +123,6 @@ bool Field3d::isSymmetric()
   const int kk = grid->ijcells;
   const int icells = grid->icells;
 
-  bool flag = true;
-
   for (int k=0; k<grid->kcells; ++k)
     for (int j=0; j<grid->jcells; ++j)
       for (int i=0; i<grid->icells/2; ++i)
@@ -133,12 +131,12 @@ bool Field3d::isSymmetric()
         const int ijks = icells-i-1 + j*jj + k*kk;
         if (data[ijk] != data[ijks])
         {
-          master->printMessage("Asymmetry at: %d, %d, %d, %E, %E\n", i, j, k, data[ijk], data[ijks]);
-          flag = false;
+          master->printMessage("Asymmetry at: %d, %d, %d, %E, %E, %E\n", i, j, k, data[ijk], data[ijks], data[ijk]-data[ijks]);
+          throw 1;
         }
       }
 
-  return flag;
+  return true;
 }
 
 /*

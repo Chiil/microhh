@@ -132,6 +132,9 @@ void DiffSmag2::exec()
 
   for(FieldMap::const_iterator it = fields->st.begin(); it!=fields->st.end(); ++it)
     diffc(it->second->data, fields->sp[it->first]->data, grid->dzi, grid->dzhi, fields->sd["evisc"]->data, fields->sp[it->first]->datafluxbot, fields->sp[it->first]->datafluxtop, fields->rhoref, fields->rhorefh, this->tPr);
+
+  master->printMessage("Diff\n");
+  fields->checkSymmetry();
 }
 #endif
 
