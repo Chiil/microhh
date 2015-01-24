@@ -38,6 +38,8 @@ class Field3d
     int init();
     // int checkfornan();
 
+    bool isSymmetric();
+
     // variables at CPU
     double *data;
     double *databot;

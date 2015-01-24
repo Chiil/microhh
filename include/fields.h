@@ -62,6 +62,8 @@ class Fields
     double checkTke();
     double checkMass();
 
+    void checkSymmetry();
+
     void set_calcMeanProfs(bool);
 
     void execCross();

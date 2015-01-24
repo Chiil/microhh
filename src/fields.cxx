@@ -1063,3 +1063,12 @@ void Fields::execDump()
   for(std::vector<std::string>::const_iterator it=dumplist.begin(); it<dumplist.end(); ++it)
     model->dump->saveDump(sd[*it]->data, atmp["tmp1"]->data, *it);
 }
+
+void Fields::checkSymmetry()
+{
+  for (FieldMap::const_iterator it = ap.begin(); it!=ap.end(); ++it)
+    master->printMessage("F %s, %d\n", it->first.c_str(), it->second->isSymmetric());
+
+  for (FieldMap::const_iterator it = at.begin(); it!=at.end(); ++it)
+    master->printMessage("T %s, %d\n", it->first.c_str(), it->second->isSymmetric());
+}
