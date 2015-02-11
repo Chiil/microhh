@@ -27,6 +27,12 @@
 #include "defines.h"
 #include "master.h"
 
+#ifdef _OPENMP
+  #include <omp.h>
+#else
+  #define omp_get_num_threads() 1
+#endif
+
 Master::Master()
 {
   initialized = false;
@@ -46,7 +52,10 @@ Master::~Master()
     MPI_Comm_free(&commy);
   }
 
-  printMessage("Finished run on %d processes\n", nprocs);
+  int nthreads;
+  #pragma omp parallel
+  nthreads = omp_get_num_threads();
+  printMessage("Finished run on %d processes, %d threads\n", nprocs, nthreads);
 
   if(initialized)
     MPI_Finalize();
@@ -80,7 +89,10 @@ void Master::start(int argc, char *argv[])
   if(checkError(n))
     throw 1;
 
-  printMessage("Starting run on %d processes\n", nprocs);
+  int nthreads;
+  #pragma omp parallel
+  nthreads = omp_get_num_threads();
+  printMessage("Starting run on %d processes, %d threads\n", nprocs, nthreads);
 
   // process the command line options
   if(argc <= 1)
