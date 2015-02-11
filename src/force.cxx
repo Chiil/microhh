@@ -374,11 +374,23 @@ void Force::calcCoriolis_4th(double * const restrict ut, double * const restrict
       for(int i=grid->istart; i<grid->iend; ++i)
       {
         ijk = i + j*jj1 + k*kk1;
-        ut[ijk] += fc * ( ( ci0*(ci0*v[ijk-ii2-jj1] + ci1*v[ijk-ii1-jj1] + ci2*v[ijk-jj1] + ci3*v[ijk+ii1-jj1])
-                          + ci1*(ci0*v[ijk-ii2    ] + ci1*v[ijk-ii1    ] + ci2*v[ijk    ] + ci3*v[ijk+ii1    ])
-                          + ci2*(ci0*v[ijk-ii2+jj1] + ci1*v[ijk-ii1+jj1] + ci2*v[ijk+jj1] + ci3*v[ijk+ii1+jj1])
-                          + ci3*(ci0*v[ijk-ii2+jj2] + ci1*v[ijk-ii1+jj2] + ci2*v[ijk+jj2] + ci3*v[ijk+ii1+jj2]) )
-                        + vgrid - vg[k] );
+        // ut[ijk] += fc * ( ( ci0*(ci0*v[ijk-ii2-jj1] + ci1*v[ijk-ii1-jj1] + ci2*v[ijk-jj1] + ci3*v[ijk+ii1-jj1])
+        //                   + ci1*(ci0*v[ijk-ii2    ] + ci1*v[ijk-ii1    ] + ci2*v[ijk    ] + ci3*v[ijk+ii1    ])
+        //                   + ci2*(ci0*v[ijk-ii2+jj1] + ci1*v[ijk-ii1+jj1] + ci2*v[ijk+jj1] + ci3*v[ijk+ii1+jj1])
+        //                   + ci3*(ci0*v[ijk-ii2+jj2] + ci1*v[ijk-ii1+jj2] + ci2*v[ijk+jj2] + ci3*v[ijk+ii1+jj2]) )
+        //                 + vgrid - vg[k] );
+        //$ SBStart
+        v  = Field("v" , vloc)
+        ut = Field("ut", uloc)
+
+        vg = Vector("vg", zloc)
+
+        fc    = Scalar("fc")
+        vgrid = Scalar("vgrid")
+
+        utrhs = fc * ( interpx( interpy(v) ) + vgrid - vg )
+        printStencil(ut, utrhs, "+=")
+        //$ SBEnd
       }
 
   for(int k=grid->kstart; k<grid->kend; ++k)
@@ -387,11 +399,23 @@ void Force::calcCoriolis_4th(double * const restrict ut, double * const restrict
       for(int i=grid->istart; i<grid->iend; ++i)
       {
         ijk = i + j*jj1 + k*kk1;
-        vt[ijk] -= fc * ( ( ci0*(ci0*u[ijk-ii1-jj2] + ci1*u[ijk-jj2] + ci2*u[ijk+ii1-jj2] + ci3*u[ijk+ii2-jj2])
-                          + ci1*(ci0*u[ijk-ii1-jj1] + ci1*u[ijk-jj1] + ci2*u[ijk+ii1-jj1] + ci3*u[ijk+ii2-jj1])
-                          + ci2*(ci0*u[ijk-ii1    ] + ci1*u[ijk    ] + ci2*u[ijk+ii1    ] + ci3*u[ijk+ii2    ])
-                          + ci3*(ci0*u[ijk-ii1+jj1] + ci1*u[ijk+jj1] + ci2*u[ijk+ii1+jj1] + ci3*u[ijk+ii2+jj1]) )
-                        + ugrid - ug[k]);
+        // vt[ijk] -= fc * ( ( ci0*(ci0*u[ijk-ii1-jj2] + ci1*u[ijk-jj2] + ci2*u[ijk+ii1-jj2] + ci3*u[ijk+ii2-jj2])
+        //                   + ci1*(ci0*u[ijk-ii1-jj1] + ci1*u[ijk-jj1] + ci2*u[ijk+ii1-jj1] + ci3*u[ijk+ii2-jj1])
+        //                   + ci2*(ci0*u[ijk-ii1    ] + ci1*u[ijk    ] + ci2*u[ijk+ii1    ] + ci3*u[ijk+ii2    ])
+        //                   + ci3*(ci0*u[ijk-ii1+jj1] + ci1*u[ijk+jj1] + ci2*u[ijk+ii1+jj1] + ci3*u[ijk+ii2+jj1]) )
+        //                 + ugrid - ug[k]);
+        //$ SBStart
+        u  = Field("u" , uloc)
+        vt = Field("vt", vloc)
+
+        ug = Vector("ug", zloc)
+
+        fc    = Scalar("fc")
+        ugrid = Scalar("ugrid")
+
+        vtrhs = fc * ( interpx( interpy(u) ) + ugrid - ug )
+        printStencil(vt, vtrhs, "-=")
+        //$ SBEnd
       }
 }
 

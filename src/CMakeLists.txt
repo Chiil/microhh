@@ -22,24 +22,21 @@
 file(GLOB sourcefiles "*.cxx" "*.cu")
 include_directories("../include" SYSTEM ${INCLUDE_DIRS})
 
+# Strip off the path from the file names
 foreach(file_ ${sourcefiles})
   get_filename_component(filename ${file_} NAME)
   list(APPEND parsedfiles ${filename})
 endforeach()
 
-foreach(file_ ${parsedfiles})
-  message(STATUS "Parsed filename: ${file_}")
-endforeach()
-
 if(USECUDA)
-  cuda_add_library(microhhc STATIC ${sourcefiles})
+  cuda_add_library(microhhc STATIC ${parsedfiles})
 else()
   add_library(microhhc STATIC ${parsedfiles})
 endif()
 
+# Invoke the StencilBuilder parser Python script on each file.
 foreach(file_ ${sourcefiles})
   get_filename_component(filename ${file_} NAME)
-  message(STATUS "Filename: ${filename}")
   add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${filename}
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${filename} ${CMAKE_CURRENT_BINARY_DIR}/${filename}
