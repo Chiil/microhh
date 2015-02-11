@@ -17,7 +17,7 @@ class Node(object):
     return NodeAdd(self, right)
 
   def __sub__(self, right):
-    return NodeAdd(self, right)
+    return NodeSub(self, right)
 
   def __mul__(self, right):
     return NodeMult(self, right)
