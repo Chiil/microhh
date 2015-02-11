@@ -25,12 +25,15 @@ include_directories("../include" SYSTEM ${INCLUDE_DIRS})
 if(USECUDA)
   cuda_add_library(microhhc STATIC ${sourcefiles})
 else()
-  add_library(microhhc STATIC ${sourcefiles})
+  add_library(microhhc STATIC 
+    ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
+    ${sourcefiles})
 endif()
 
-add_custom_command(TARGET microhhc 
-  PRE_BUILD
-  #COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/force.cxx ${CMAKE_CURRENT_BINARY_DIR}/parsed/force.cxx
-  COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/parser.py force.cxx
+add_custom_command(
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
+  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/force.cxx ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
+  #COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/parser.py ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
+  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/force.cxx
 )
 
