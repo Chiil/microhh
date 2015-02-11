@@ -19,21 +19,32 @@
 #  You should have received a copy of the GNU General Public License
 #  along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
 #
-file(GLOB sourcefiles "../src/*.cxx" "../src/*.cu")
+file(GLOB sourcefiles "*.cxx" "*.cu")
 include_directories("../include" SYSTEM ${INCLUDE_DIRS})
+
+foreach(file_ ${sourcefiles})
+  get_filename_component(filename ${file_} NAME)
+  list(APPEND parsedfiles ${filename})
+endforeach()
+
+foreach(file_ ${parsedfiles})
+  message(STATUS "Parsed filename: ${file_}")
+endforeach()
 
 if(USECUDA)
   cuda_add_library(microhhc STATIC ${sourcefiles})
 else()
   add_library(microhhc STATIC 
-    ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
-    ${sourcefiles})
+  ${parsedfiles})
 endif()
 
-add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/force.cxx ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
-  #COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/parser.py ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
-  DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/force.cxx
-)
-
+foreach(file_ ${sourcefiles})
+  get_filename_component(filename ${file_} NAME)
+  message(STATUS "Filename: ${filename}")
+  add_custom_command(
+    OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${filename}
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${filename} ${CMAKE_CURRENT_BINARY_DIR}/${filename}
+    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/parser.py ${CMAKE_CURRENT_BINARY_DIR}/${filename}
+    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${filename}
+  )
+endforeach()
