@@ -34,8 +34,7 @@ endforeach()
 if(USECUDA)
   cuda_add_library(microhhc STATIC ${sourcefiles})
 else()
-  add_library(microhhc STATIC 
-  ${parsedfiles})
+  add_library(microhhc STATIC ${parsedfiles})
 endif()
 
 foreach(file_ ${sourcefiles})
@@ -44,7 +43,7 @@ foreach(file_ ${sourcefiles})
   add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${filename}
     COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/${filename} ${CMAKE_CURRENT_BINARY_DIR}/${filename}
-    COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/parser.py ${CMAKE_CURRENT_BINARY_DIR}/${filename}
+    COMMAND python ${CMAKE_SOURCE_DIR}/stencilbuilder/parser.py ${CMAKE_CURRENT_BINARY_DIR}/${filename}
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/${filename}
   )
 endforeach()
