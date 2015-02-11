@@ -19,9 +19,19 @@
 #  You should have received a copy of the GNU General Public License
 #  along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
 #
-FILE(GLOB sourcefiles "../src/*.cxx" "../src/*.cu")
-#include_directories(${INCLUDE_DIRS} "../include")
-include_directories("../include" SYSTEM ${INCLUDE_DIRS}) 
+add_custom_command(
+  OUTPUT force.cxx
+  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/force.cxx ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
+  COMMAND python ${CMAKE_CURRENT_SOURCE_DIR}/parser.py force.cxx
+  DEPENDS force.cxx
+  COMMENT "Parsing Stencils")
+
+add_custom_target(stencils
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/force.cxx
+  COMMENT "Finishing Stencils")
+
+file(GLOB sourcefiles "${CMAKE_CURRENT_BINARY_DIR}/*.cxx" "${CMAKE_CURRENT_SOURCE_DIR}/*.cxx" "../src/*.cu")
+include_directories("../include" SYSTEM ${INCLUDE_DIRS})
 
 if(USECUDA)
   cuda_add_library(microhhc STATIC ${sourcefiles})
