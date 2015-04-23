@@ -82,6 +82,7 @@ class Thermo_dry : public Thermo
                                double *, double *); ///< Calculation of the near-surface and surface buoyancy.
         void calc_buoyancy_fluxbot(double *, double *, double *);  ///< Calculation of the buoyancy flux at the bottom.
         void calc_buoyancy_tend_2nd(double *, double *, double *); ///< Calculation of the buoyancy tendency with 2nd order accuracy.
+        void calc_buoyancy_tendth_2nd(double *, double *, double *, double *); ///< Calculation of the buoyancy tendency with 2nd order accuracy.
         void calc_buoyancy_tend_4th(double *, double *, double *); ///< Calculation of the buoyancy tendency with 4th order accuracy.
 
         void init_base_state(double *, double *, double *, double *, double *, double *, double *, double *, double); ///< For anelastic setup, calculate base state from initial input profiles
