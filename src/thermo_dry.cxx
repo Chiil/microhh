@@ -89,6 +89,7 @@ Thermo_dry::Thermo_dry(Model *modelin, Input *inputin) : Thermo(modelin, inputin
     if (nerror)
         throw 1;
 
+    // Case specific hacks...
     fields->set_calc_mean_profs(true);
 }
 
@@ -420,7 +421,7 @@ void Thermo_dry::calc_buoyancy_tendth_2nd(double* restrict tht, double* restrict
     const int jj = grid->icells;
     const int kk = grid->ijcells;
 
-    const double cooling_rate = -0.1/3600.;
+    const double cooling_rate = -0.01/3600.;
 
     for (int k=grid->kstart+1; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
