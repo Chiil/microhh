@@ -86,6 +86,7 @@ class Pres_4 : public Pres
                    double* restrict, double);
 
         void solve(double* restrict, double* restrict, double* restrict,
+                   double* restrict, double* restrict,
                    double* restrict, double* restrict, double* restrict, double* restrict,
                    double* restrict, double* restrict, double* restrict,
                    double* restrict, double* restrict, double* restrict, double* restrict,

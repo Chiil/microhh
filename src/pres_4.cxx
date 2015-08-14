@@ -118,7 +118,8 @@ void Pres_4::exec(double dt)
 
     const int ns = grid->iblock*jslice*(grid->kmax+4);
 
-    solve(fields->sd["p"]->data, fields->atmp["tmp1"]->data, grid->dz,
+    solve(fields->sd["p"]->data, fields->wt->data, fields->atmp["tmp1"]->data,
+          grid->z, grid->dz,
           m1, m2, m3, m4,
           m5, m6, m7,
           &tmp2[0*ns], &tmp2[1*ns], &tmp2[2*ns], &tmp2[3*ns], 
@@ -288,7 +289,8 @@ void Pres_4::input(double* restrict p,
             }
 }
 
-void Pres_4::solve(double* restrict p, double* restrict work3d, double* restrict dz,
+void Pres_4::solve(double* restrict p, double* restrict wt, double* restrict work3d,
+                   double* restrict z, double* restrict dz,
                    double* restrict m1, double* restrict m2, double* restrict m3, double* restrict m4,
                    double* restrict m5, double* restrict m6, double* restrict m7,
                    double* restrict m1temp, double* restrict m2temp, double* restrict m3temp, double* restrict m4temp,
@@ -470,14 +472,15 @@ void Pres_4::solve(double* restrict p, double* restrict work3d, double* restrict
                 p[ijkp] = work3d[ijk];
             }
 
-    // Set a zero gradient boundary at the bottom.
+    // Set the gradient of pressure equal to the tendency at the bottom.
+    const int kstart = grid->kstart;
     for (int j=grid->jstart; j<grid->jend; j++)
 #pragma ivdep
         for (int i=grid->istart; i<grid->iend; i++)
         {
-            ijk = i + j*jjp + grid->kstart*kkp1;
-            p[ijk-kkp1] = p[ijk     ];
-            p[ijk-kkp2] = p[ijk+kkp1];
+            ijk = i + j*jjp + kstart*kkp1;
+            p[ijk-kkp1] = -(1./24.)*grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1])*wt[ijk] + p[ijk     ];
+            p[ijk-kkp2] = -(1./ 8.)*grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1])*wt[ijk] + p[ijk+kkp1];
         }
 
     // Set a zero gradient boundary at the top.
@@ -505,24 +508,12 @@ void Pres_4::output(double* restrict ut, double* restrict vt, double* restrict w
     const int kk1 = 1*grid->ijcells;
     const int kk2 = 2*grid->ijcells;
 
-    const int kstart = grid->kstart;
-
     const double dxi = 1./grid->dx;
     const double dyi = 1./grid->dy;
 
-    for (int j=grid->jstart; j<grid->jend; j++)
-#pragma ivdep
-        for (int i=grid->istart; i<grid->iend; i++)
-        {
-            const int ijk = i + j*jj1 + kstart*kk1;
-            ut[ijk] -= (cg0*p[ijk-ii2] + cg1*p[ijk-ii1] + cg2*p[ijk] + cg3*p[ijk+ii1]) * cgi*dxi;
-            if (dim3)
-                vt[ijk] -= (cg0*p[ijk-jj2] + cg1*p[ijk-jj1] + cg2*p[ijk] + cg3*p[ijk+jj1]) * cgi*dyi;
-        }
-
-    for (int k=grid->kstart+1; k<grid->kend; k++)
+    for (int k=grid->kstart; k<grid->kend; k++)
         for (int j=grid->jstart; j<grid->jend; j++)
-#pragma ivdep
+            #pragma ivdep
             for (int i=grid->istart; i<grid->iend; i++)
             {
                 const int ijk = i + j*jj1 + k*kk1;
