@@ -259,14 +259,18 @@ void Pres_4::input(double* restrict p,
     if (dim3)
         grid->boundary_cyclic(vt, North_south_edge);
 
-    // Set the bc. 
+    // Set the bc. Store the boundary tendency temporarily in the second
+    // ghost cell.
     for (int j=0; j<grid->jmax; j++)
 #pragma ivdep
         for (int i=0; i<grid->imax; i++)
         {
             const int ijk  = i+igc + (j+jgc)*jj1 + kgc*kk1;
             wt[ijk-kk1] = -wt[ijk+kk1];
+            wt[ijk-kk2] = wt[ijk];
+            wt[ijk    ] = 0.;
         }
+
     for (int j=0; j<grid->jmax; j++)
 #pragma ivdep
         for (int i=0; i<grid->imax; i++)
@@ -287,6 +291,14 @@ void Pres_4::input(double* restrict p,
                     p[ijkp] += (cg0*(vt[ijk-jj1] + v[ijk-jj1]*dti) + cg1*(vt[ijk] + v[ijk]*dti) + cg2*(vt[ijk+jj1] + v[ijk+jj1]*dti) + cg3*(vt[ijk+jj2] + v[ijk+jj2]*dti)) * cgi*dyi;
                 p[ijkp] += (cg0*(wt[ijk-kk1] + w[ijk-kk1]*dti) + cg1*(wt[ijk] + w[ijk]*dti) + cg2*(wt[ijk+kk1] + w[ijk+kk1]*dti) + cg3*(wt[ijk+kk2] + w[ijk+kk2]*dti)) * dzi4[k+kgc];
             }
+
+    for (int j=0; j<grid->jmax; j++)
+#pragma ivdep
+        for (int i=0; i<grid->imax; i++)
+        {
+            const int ijk  = i+igc + (j+jgc)*jj1 + kgc*kk1;
+            wt[ijk] = wt[ijk-kk2];
+        }
 }
 
 void Pres_4::solve(double* restrict p, double* restrict wt, double* restrict work3d,
@@ -522,7 +534,6 @@ void Pres_4::output(double* restrict ut, double* restrict vt, double* restrict w
                     vt[ijk] -= (cg0*p[ijk-jj2] + cg1*p[ijk-jj1] + cg2*p[ijk] + cg3*p[ijk+jj1]) * cgi*dyi;
 
                 wt[ijk] -= (cg0*p[ijk-kk2] + cg1*p[ijk-kk1] + cg2*p[ijk] + cg3*p[ijk+kk1]) * dzhi4[k];
-                if (k == grid->kstart && std::abs(wt[ijk]) > 1E-10) master->print_message("%d, %E, %E\n", k, wt[ijk], (cg0*p[ijk-kk2] + cg1*p[ijk-kk1] + cg2*p[ijk] + cg3*p[ijk+kk1]) * dzhi4[k]);
             }
 }
 
