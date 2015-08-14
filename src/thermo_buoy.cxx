@@ -151,7 +151,7 @@ void Thermo_buoy::calc_buoyancy_tend_4th(double* restrict wt, double* restrict b
     const int kk1 = 1*grid->ijcells;
     const int kk2 = 2*grid->ijcells;
 
-    for (int k=grid->kstart+1; k<grid->kend; ++k)
+    for (int k=grid->kstart; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
 #pragma ivdep
             for (int i=grid->istart; i<grid->iend; ++i)

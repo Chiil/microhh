@@ -520,7 +520,9 @@ void Pres_4::output(double* restrict ut, double* restrict vt, double* restrict w
                 ut[ijk] -= (cg0*p[ijk-ii2] + cg1*p[ijk-ii1] + cg2*p[ijk] + cg3*p[ijk+ii1]) * cgi*dxi;
                 if (dim3)
                     vt[ijk] -= (cg0*p[ijk-jj2] + cg1*p[ijk-jj1] + cg2*p[ijk] + cg3*p[ijk+jj1]) * cgi*dyi;
+
                 wt[ijk] -= (cg0*p[ijk-kk2] + cg1*p[ijk-kk1] + cg2*p[ijk] + cg3*p[ijk+kk1]) * dzhi4[k];
+                if (k == grid->kstart && std::abs(wt[ijk]) > 1E-10) master->print_message("%d, %E, %E\n", k, wt[ijk], (cg0*p[ijk-kk2] + cg1*p[ijk-kk1] + cg2*p[ijk] + cg3*p[ijk+kk1]) * dzhi4[k]);
             }
 }
 
