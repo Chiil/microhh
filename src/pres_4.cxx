@@ -119,7 +119,7 @@ void Pres_4::exec(double dt)
     const int ns = grid->iblock*jslice*(grid->kmax+4);
 
     solve(fields->sd["p"]->data, fields->wt->data, fields->atmp["tmp1"]->data,
-          grid->z, grid->dz,
+          grid->dz,
           m1, m2, m3, m4,
           m5, m6, m7,
           &tmp2[0*ns], &tmp2[1*ns], &tmp2[2*ns], &tmp2[3*ns], 
@@ -130,10 +130,12 @@ void Pres_4::exec(double dt)
     // 3. Get the pressure tendencies from the pressure field.
     if (grid->jtot == 1)
         output<false>(fields->ut->data, fields->vt->data, fields->wt->data, 
-                      fields->sd["p"]->data, grid->dzhi4);
+                      fields->sd["p"]->data,
+                      grid->z, grid->dzhi4);
     else
         output<true>(fields->ut->data, fields->vt->data, fields->wt->data, 
-                     fields->sd["p"]->data, grid->dzhi4);
+                     fields->sd["p"]->data,
+                     grid->z, grid->dzhi4);
 }
 
 double Pres_4::check_divergence()
@@ -291,18 +293,10 @@ void Pres_4::input(double* restrict p,
                     p[ijkp] += (cg0*(vt[ijk-jj1] + v[ijk-jj1]*dti) + cg1*(vt[ijk] + v[ijk]*dti) + cg2*(vt[ijk+jj1] + v[ijk+jj1]*dti) + cg3*(vt[ijk+jj2] + v[ijk+jj2]*dti)) * cgi*dyi;
                 p[ijkp] += (cg0*(wt[ijk-kk1] + w[ijk-kk1]*dti) + cg1*(wt[ijk] + w[ijk]*dti) + cg2*(wt[ijk+kk1] + w[ijk+kk1]*dti) + cg3*(wt[ijk+kk2] + w[ijk+kk2]*dti)) * dzi4[k+kgc];
             }
-
-    for (int j=0; j<grid->jmax; j++)
-#pragma ivdep
-        for (int i=0; i<grid->imax; i++)
-        {
-            const int ijk  = i+igc + (j+jgc)*jj1 + kgc*kk1;
-            wt[ijk] = wt[ijk-kk2];
-        }
 }
 
 void Pres_4::solve(double* restrict p, double* restrict wt, double* restrict work3d,
-                   double* restrict z, double* restrict dz,
+                   double* restrict dz,
                    double* restrict m1, double* restrict m2, double* restrict m3, double* restrict m4,
                    double* restrict m5, double* restrict m6, double* restrict m7,
                    double* restrict m1temp, double* restrict m2temp, double* restrict m3temp, double* restrict m4temp,
@@ -491,8 +485,8 @@ void Pres_4::solve(double* restrict p, double* restrict wt, double* restrict wor
         for (int i=grid->istart; i<grid->iend; i++)
         {
             ijk = i + j*jjp + kstart*kkp1;
-            p[ijk-kkp1] = -(1./24.)*grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1])*wt[ijk] + p[ijk     ];
-            p[ijk-kkp2] = -(1./ 8.)*grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1])*wt[ijk] + p[ijk+kkp1];
+            p[ijk-kkp1] = p[ijk     ];
+            p[ijk-kkp2] = p[ijk+kkp1];
         }
 
     // Set a zero gradient boundary at the top.
@@ -511,7 +505,8 @@ void Pres_4::solve(double* restrict p, double* restrict wt, double* restrict wor
 
 template<bool dim3>
 void Pres_4::output(double* restrict ut, double* restrict vt, double* restrict wt, 
-                    double* restrict p , double* restrict dzhi4)
+                    double* restrict p,
+                    double* restrict z, double* restrict dzhi4)
 {
     const int ii1 = 1;
     const int ii2 = 2;
@@ -532,9 +527,21 @@ void Pres_4::output(double* restrict ut, double* restrict vt, double* restrict w
                 ut[ijk] -= (cg0*p[ijk-ii2] + cg1*p[ijk-ii1] + cg2*p[ijk] + cg3*p[ijk+ii1]) * cgi*dxi;
                 if (dim3)
                     vt[ijk] -= (cg0*p[ijk-jj2] + cg1*p[ijk-jj1] + cg2*p[ijk] + cg3*p[ijk+jj1]) * cgi*dyi;
-
                 wt[ijk] -= (cg0*p[ijk-kk2] + cg1*p[ijk-kk1] + cg2*p[ijk] + cg3*p[ijk+kk1]) * dzhi4[k];
             }
+
+    // Set the gradient of pressure equal to the tendency at the bottom.
+    const int kstart = grid->kstart;
+    for (int j=grid->jstart; j<grid->jend; j++)
+#pragma ivdep
+        for (int i=grid->istart; i<grid->iend; i++)
+        {
+            const int ijk = i + j*jj1 + kstart*kk1;
+            p[ijk-kk1] = -(1./24.)*grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1])*wt[ijk-kk2] + p[ijk    ];
+            p[ijk-kk2] = -(1./ 8.)*grad4x(z[kstart-2], z[kstart-1], z[kstart], z[kstart+1])*wt[ijk-kk2] + p[ijk+kk1];
+        }
+
+
 }
 
 void Pres_4::hdma(double* restrict m1, double* restrict m2, double* restrict m3, double* restrict m4,

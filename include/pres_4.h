@@ -86,7 +86,7 @@ class Pres_4 : public Pres
                    double* restrict, double);
 
         void solve(double* restrict, double* restrict, double* restrict,
-                   double* restrict, double* restrict,
+                   double* restrict,
                    double* restrict, double* restrict, double* restrict, double* restrict,
                    double* restrict, double* restrict, double* restrict,
                    double* restrict, double* restrict, double* restrict, double* restrict,
@@ -96,6 +96,7 @@ class Pres_4 : public Pres
 
         template<bool>
         void output(double* restrict, double* restrict, double* restrict,
+                    double* restrict,
                     double* restrict, double* restrict);
 
         void hdma(double* restrict, double* restrict, double* restrict, double* restrict,
