@@ -22,6 +22,7 @@
 
 #ifndef CANOPY
 #define CANOPY
+#include <string>
 
 class Model;
 class Grid;
@@ -49,5 +50,16 @@ class Canopy
         Model*  model;  ///< Pointer to model class.
         Grid*   grid;   ///< Pointer to grid class.
         Fields* fields; ///< Pointer to fields class.
+
+        void calc_canopy_drag(double* const restrict, double* const restrict, double* const restrict,
+                              const double* const restrict, const double* const restrict, const double* const restrict,
+                              const double* const);
+
+        std::string swcanopy;
+        double Cd;
+        double pai;
+
+        double* relative_pad;
+        double* pad;
 };
 #endif

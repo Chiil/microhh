@@ -152,9 +152,9 @@ void Model::delete_objects()
 Model::~Model()
 {
     delete_objects();
-#ifdef USECUDA
+    #ifdef USECUDA
     cudaDeviceReset();
-#endif
+    #endif
 }
 
 // In the init stage all class individual settings are known and the dynamic arrays are allocated.
