@@ -95,8 +95,8 @@ void Canopy::calc_canopy_drag(double* const restrict ut, double* const restrict 
     const int jj = grid->icells;
     const int kk = grid->ijcells;
 
-    const double ugrid = grid->utrans;
-    const double vgrid = grid->vtrans;
+    const double utrans = grid->utrans;
+    const double vtrans = grid->vtrans;
 
     const double Cd = this->Cd;
 
@@ -107,11 +107,11 @@ void Canopy::calc_canopy_drag(double* const restrict ut, double* const restrict 
             for (int i=grid->istart; i<grid->iend; ++i)
             {
                 const int ijk = i + j*jj + k*kk;
-                const double u2 = std::pow(u[ijk] + ugrid, 2);
-                const double v2 = std::pow(0.25*(v[ijk-ii] + v[ijk-ii+jj] + v[ijk] + v[ijk+jj]) + vgrid, 2);
+                const double u2 = std::pow(u[ijk] + utrans, 2);
+                const double v2 = std::pow(0.25*(v[ijk-ii] + v[ijk-ii+jj] + v[ijk] + v[ijk+jj]) + vtrans, 2);
                 const double w2 = std::pow(0.25*(w[ijk-ii] + w[ijk-ii+kk] + w[ijk] + w[ijk+kk]), 2);
                 const double utot = std::sqrt(u2 + v2 + w2);
-                ut[ijk] -= Cd * pad[k] * utot * u[ijk];
+                ut[ijk] -= Cd * pad[k] * utot * (u[ijk]+utrans);
             }
 
     // Calculate drag for v-component.
@@ -121,11 +121,11 @@ void Canopy::calc_canopy_drag(double* const restrict ut, double* const restrict 
             for (int i=grid->istart; i<grid->iend; ++i)
             {
                 const int ijk = i + j*jj + k*kk;
-                const double u2 = std::pow(0.25*(u[ijk-jj] + u[ijk+ii-jj] + u[ijk] + u[ijk+ii]) + ugrid, 2);
-                const double v2 = std::pow(v[ijk] + vgrid, 2);
+                const double u2 = std::pow(0.25*(u[ijk-jj] + u[ijk+ii-jj] + u[ijk] + u[ijk+ii]) + utrans, 2);
+                const double v2 = std::pow(v[ijk] + vtrans, 2);
                 const double w2 = std::pow(0.25*(w[ijk-jj] + w[ijk-jj+kk] + w[ijk] + w[ijk+kk]), 2);
                 const double utot = std::sqrt(u2 + v2 + w2);
-                vt[ijk] -= Cd * pad[k] * utot * v[ijk];
+                vt[ijk] -= Cd * pad[k] * utot * (v[ijk]+vtrans);
             }
 
     // Calculate drag for w-component.
@@ -135,8 +135,8 @@ void Canopy::calc_canopy_drag(double* const restrict ut, double* const restrict 
             for (int i=grid->istart; i<grid->iend; ++i)
             {
                 const int ijk = i + j*jj + k*kk;
-                const double u2 = std::pow(0.25*(u[ijk-kk] + u[ijk+ii-kk] + u[ijk] + u[ijk+ii]) + ugrid, 2);
-                const double v2 = std::pow(0.25*(v[ijk-kk] + v[ijk+jj-kk] + v[ijk] + v[ijk+jj]) + vgrid, 2);
+                const double u2 = std::pow(0.25*(u[ijk-kk] + u[ijk+ii-kk] + u[ijk] + u[ijk+ii]) + utrans, 2);
+                const double v2 = std::pow(0.25*(v[ijk-kk] + v[ijk+jj-kk] + v[ijk] + v[ijk+jj]) + vtrans, 2);
                 const double w2 = std::pow(w[ijk], 2);
                 const double utot = std::sqrt(u2 + v2 + w2);
                 wt[ijk] -= Cd * pad[k] * utot * w[ijk];
