@@ -42,7 +42,7 @@ class Canopy
 
         void init();         ///< Initialize the arrays that contain the profiles.
         void create(Input*); ///< Read the profiles of the forces from the input.
-        void exec();         ///< Add the tendencies belonging to the large-scale processes.
+        void exec();         ///< Add the tendencies belonging to the canopy.
 
     private:
         Master* master; ///< Pointer to master class.

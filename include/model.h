@@ -37,6 +37,7 @@ class Pres;
 class Force;
 class Thermo;
 class Buffer;
+class Canopy;
 class Stats;
 class Cross;
 class Dump;
@@ -69,6 +70,7 @@ class Model
         Force*    force;   
         Thermo*   thermo;
         Buffer*   buffer;
+        Canopy*   canopy;
 
         // Postprocessing and output modules.
         Stats*  stats;

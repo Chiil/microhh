@@ -35,6 +35,7 @@
 #include "thermo.h"
 #include "boundary.h"
 #include "buffer.h"
+#include "canopy.h"
 #include "force.h"
 #include "stats.h"
 #include "cross.h"
@@ -60,6 +61,7 @@ Model::Model(Master *masterin, Input *inputin)
     timeloop = 0;
     force    = 0;
     buffer   = 0;
+    canopy   = 0;
 
     stats  = 0;
     cross  = 0;
@@ -84,6 +86,7 @@ Model::Model(Master *masterin, Input *inputin)
         timeloop = new Timeloop(this, input);
         force    = new Force   (this, input);
         buffer   = new Buffer  (this, input);
+        canopy   = new Canopy  (this, input);
 
         // Create instances of the statistics classes. First create stats as it is required for init of derived stats.
         stats  = new Stats (this, input);
@@ -131,6 +134,7 @@ void Model::delete_objects()
     delete dump;
     delete cross;
     delete stats;
+    delete canopy;
     delete buffer;
     delete force;
     delete pres;
@@ -161,6 +165,7 @@ void Model::init()
 
     boundary->init(input);
     buffer  ->init();
+    canopy  ->init();
     force   ->init();
     pres    ->init();
     thermo  ->init();
@@ -190,6 +195,7 @@ void Model::load()
     boundary->create(input);
 
     buffer->create(input);
+    canopy->create(input);
     force ->create(input);
     thermo->create(input);
 
@@ -216,7 +222,7 @@ void Model::save()
 
 void Model::exec()
 {
-#ifdef USECUDA
+    #ifdef USECUDA
     // Load all the necessary data to the GPU.
     master  ->print_message("Preparing the GPU\n");
     grid    ->prepare_device();
@@ -228,7 +234,7 @@ void Model::exec()
     force   ->prepare_device();
     // Prepare pressure last, for memory check
     pres    ->prepare_device(); 
-#endif
+    #endif
 
     master->print_message("Starting time integration\n");
 
@@ -269,6 +275,9 @@ void Model::exec()
         thermo->exec();
         // Calculate the tendency due to damping in the buffer layer.
         buffer->exec();
+
+        // Calculate the canopy drag
+        canopy->exec();
 
         // Apply the large scale forcings. Keep this one always right before the pressure.
         force->exec(timeloop->get_sub_time_step());
@@ -392,11 +401,11 @@ void Model::exec()
 
     } // End time loop.
 
-#ifdef USECUDA
+    #ifdef USECUDA
     // At the end of the run, copy the data back from the GPU.
     fields  ->backward_device();
     boundary->backward_device();
-#endif
+    #endif
 }
 
 void Model::set_time_step()
