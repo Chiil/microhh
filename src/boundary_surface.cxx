@@ -451,7 +451,7 @@ void Boundary_surface::stability_neutral(double* restrict ustar, double* restric
 
     // set the Obukhov length to a very large negative number
     // case 1: fixed buoyancy flux and fixed ustar
-    if (mbcbot == Ustar_type && thermobc == Flux_type)
+    if (mbcbot == Ustar_type)
     {
         for (int j=grid->jstart; j<grid->jend; ++j)
 #pragma ivdep
@@ -462,7 +462,7 @@ void Boundary_surface::stability_neutral(double* restrict ustar, double* restric
             }
     }
     // case 2: fixed buoyancy surface value and free ustar
-    else if (mbcbot == Dirichlet_type && thermobc == Flux_type)
+    else if (mbcbot == Dirichlet_type)
     {
         for (int j=0; j<grid->jcells; ++j)
 #pragma ivdep
@@ -473,7 +473,7 @@ void Boundary_surface::stability_neutral(double* restrict ustar, double* restric
                 ustar[ij] = dutot[ij] * most::fm(z[kstart], z0m, obuk[ij]);
             }
     }
-    else if (mbcbot == Dirichlet_type && thermobc == Dirichlet_type)
+    else if (mbcbot == Dirichlet_type)
     {
         for (int j=0; j<grid->jcells; ++j)
 #pragma ivdep
