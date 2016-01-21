@@ -92,7 +92,8 @@ Model::Model(Master *masterin, Input *inputin)
         stats  = new Stats (this, input);
         cross  = new Cross (this, input);
         dump   = new Dump  (this, input);
-        budget = new Budget(this, input);
+
+        budget = new Budget(input, master, grid, fields, thermo, stats);
 
         // Get the list of masks.
         // TODO Make an interface that takes this out of the main loop.
@@ -260,9 +261,13 @@ void Model::exec()
         set_time_step();
 
         // Calculate the advection tendency.
+        boundary->set_ghost_cells_w(Boundary::Conservation_type);
         advec->exec();
+        boundary->set_ghost_cells_w(Boundary::Normal_type);
+
         // Calculate the diffusion tendency.
         diff->exec();
+
         // Calculate the thermodynamics and the buoyancy tendency.
         thermo->exec();
         // Calculate the tendency due to damping in the buffer layer.
@@ -278,7 +283,9 @@ void Model::exec()
         immersed_boundary->exec(*fields);
 
         // Solve the poisson equation for pressure.
+        boundary->set_ghost_cells_w(Boundary::Conservation_type);
         pres->exec(timeloop->get_sub_time_step());
+        boundary->set_ghost_cells_w(Boundary::Normal_type);
 
         // Allow only for statistics when not in substep and not directly after restart.
         if (timeloop->is_stats_step())
@@ -459,7 +466,11 @@ void Model::print_status()
         iter = timeloop->get_iteration();
         time = timeloop->get_time();
         dt   = timeloop->get_dt();
+
+        boundary->set_ghost_cells_w(Boundary::Conservation_type);
         div  = pres->check_divergence();
+        boundary->set_ghost_cells_w(Boundary::Normal_type);
+
         mom  = fields->check_momentum();
         tke  = fields->check_tke();
         mass = fields->check_mass();

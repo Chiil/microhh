@@ -38,6 +38,7 @@
 #include "cross.h"
 #include "dump.h"
 #include "thermo_moist_functions.h"
+#include <netcdfcpp.h> // for NC_FILLVAL
 
 using Finite_difference::O2::interp2;
 using Finite_difference::O4::interp4;
@@ -428,14 +429,14 @@ void Thermo_moist::exec_stats(Mask *m)
         }
         else
         {
-            stats->calc_diff_2nd(fields->atmp["tmp1"]->data, m->profs["bdiff"].data, grid->dzhi, fields->sp["th"]->visc, sloc,
+            stats->calc_diff_2nd(fields->atmp["tmp1"]->data, m->profs["bdiff"].data, grid->dzhi, fields->sp[thvar]->visc, sloc,
                                  fields->atmp["tmp4"]->data, stats->nmaskh);
         }
     }
     else if (grid->swspatialorder == "4")
     {
         // take the diffusivity of temperature for that of buoyancy
-        stats->calc_diff_4th(fields->atmp["tmp1"]->data, m->profs["bdiff"].data, grid->dzhi4, fields->sp["th"]->visc, sloc,
+        stats->calc_diff_4th(fields->atmp["tmp1"]->data, m->profs["bdiff"].data, grid->dzhi4, fields->sp[thvar]->visc, sloc,
                              fields->atmp["tmp4"]->data, stats->nmaskh);
     }
 
@@ -503,6 +504,25 @@ void Thermo_moist::exec_cross()
             calc_liquid_water(fields->atmp["tmp1"]->data, fields->sp[thvar]->data, fields->sp["qt"]->data, pref);
             // Note: tmp1 twice used as argument -> overwritten in crosspath()
             nerror += cross->cross_path(fields->atmp["tmp1"]->data, fields->atmp["tmp2"]->data, fields->atmp["tmp1"]->data, "qlpath");
+        }
+        else if (*it == "qlbase")
+        {
+            const double ql_threshold = 0.;
+            calc_liquid_water(fields->atmp["tmp1"]->data, fields->sp[thvar]->data, fields->sp["qt"]->data, pref);
+            nerror += cross->cross_height_threshold(fields->atmp["tmp1"]->data, fields->atmp["tmp1"]->databot, fields->atmp["tmp2"]->data, grid->z, ql_threshold, Bottom_to_top, "qlbase");
+        }
+        else if (*it == "qltop")
+        {
+            const double ql_threshold = 0.;
+            calc_liquid_water(fields->atmp["tmp1"]->data, fields->sp[thvar]->data, fields->sp["qt"]->data, pref);
+            nerror += cross->cross_height_threshold(fields->atmp["tmp1"]->data, fields->atmp["tmp1"]->databot, fields->atmp["tmp2"]->data, grid->z, ql_threshold, Top_to_bottom, "qltop");
+        }
+        else if (*it == "maxthvcloud")
+        {
+            calc_liquid_water(fields->atmp["tmp1"]->data, fields->sp[thvar]->data, fields->sp["qt"]->data, pref);
+            calc_maximum_thv_perturbation_cloud(fields->atmp["tmp2"]->databot, fields->atmp["tmp2"]->data, 
+                                                fields->sp["thl"]->data, fields->sp["qt"]->data, fields->atmp["tmp1"]->data, pref, fields->atmp["tmp2"]->datamean);
+            nerror += cross->cross_plane(fields->atmp["tmp2"]->databot, fields->atmp["tmp1"]->data, "maxthvcloud");
         }
         else if (*it == "bbot" or *it == "bfluxbot")
         {
@@ -857,6 +877,58 @@ void Thermo_moist::calc_buoyancy(double* restrict b, double* restrict thl, doubl
     }
 }
 
+// Calculate the maximum in-cloud virtual temperature perturbation (thv - <thv>) with height
+void Thermo_moist::calc_maximum_thv_perturbation_cloud(double* restrict thv_pert, double* restrict thv, double* restrict thl, 
+                                                       double* restrict qt, double* restrict ql, double* restrict p, double* restrict thvmean)
+{
+    double ex;
+    const int jj = grid->icells;
+    const int kk = grid->ijcells;
+
+    // Set field to zero
+    for (int j=grid->jstart; j<grid->jend; j++)
+        #pragma ivdep
+        for (int i=grid->istart; i<grid->iend; i++)
+        {
+            const int ij = i + j*jj;
+            thv_pert[ij] = NC_FILL_DOUBLE; // BvS not so nice..
+        }
+
+    // Calculate virtual temperature 
+    for (int k=grid->kstart; k<grid->kend; k++)
+    {
+        ex = exner(p[k]);
+        for (int j=grid->jstart; j<grid->jend; j++)
+            #pragma ivdep
+            for (int i=grid->istart; i<grid->iend; i++)
+            {
+                const int ijk = i + j*jj + k*kk;
+                thv[ijk] = virtual_temperature(ex, thl[ijk], qt[ijk], ql[ijk]);
+            }
+    }
+
+    // Calculate domain averaged virtual temperature
+    grid->calc_mean(thvmean, thv, grid->kcells);
+  
+    // Calculate maximum in-cloud virtual temperature perturbation per column 
+    for (int k=grid->kstart; k<grid->kend; k++)
+        for (int j=grid->jstart; j<grid->jend; j++)
+            #pragma ivdep
+            for (int i=grid->istart; i<grid->iend; i++)
+            {
+                const int ij  = i + j*jj;
+                const int ijk = i + j*jj + k*kk;
+
+                if(ql[ijk] > 0)
+                {
+                    if(thv_pert[ij] == NC_FILL_DOUBLE)
+                        thv_pert[ij] = thv[ijk] - thvmean[k];
+                    else
+                        thv_pert[ij] = std::max(thv_pert[ij], thv[ijk] - thvmean[k]);
+                }
+            }
+}
+
 void Thermo_moist::calc_liquid_water(double* restrict ql, double* restrict thl, double* restrict qt, double* restrict p)
 {
     double ex;
@@ -957,7 +1029,7 @@ void Thermo_moist::calc_buoyancy_fluxbot(double* restrict bfluxbot, double* rest
 void Thermo_moist::init_stat()
 {
     // Add variables to the statistics
-    if (stats->getSwitch() == "1")
+    if (stats->get_switch() == "1")
     {
         /* Add fixed base-state density and temperature profiles. Density should probably be in fields (?), but
            there the statistics are initialized before thermo->create() is called */
@@ -1012,6 +1084,9 @@ void Thermo_moist::init_cross()
             allowedcrossvars.push_back("blngrad");
         allowedcrossvars.push_back("ql");
         allowedcrossvars.push_back("qlpath");
+        allowedcrossvars.push_back("qlbase");
+        allowedcrossvars.push_back("qltop");
+        allowedcrossvars.push_back("maxthvcloud");  // yikes
 
         // Get global cross-list from cross.cxx
         std::vector<std::string> *crosslist_global = model->cross->get_crosslist(); 
