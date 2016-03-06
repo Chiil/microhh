@@ -83,6 +83,10 @@ void Budget::create()
     stats.add_prof("ke" , "Kinetic energy" , "m2 s-2", "z");
     stats.add_prof("tke", "Turbulent kinetic energy" , "m2 s-2", "z");
 
+    stats.add_prof("u_turb", "Turbulent transport term in U budget", "m s-2", "z");
+    stats.add_prof("u_visc", "Viscous transport term in U budget", "m s-2", "z");
+    stats.add_prof("u_ls"  , "Large scale pressure force in U budget", "m s-2", "z");
+
     // add the profiles for the kinetic energy budget to the statistics
     stats.add_prof("u2_shear" , "Shear production term in U2 budget" , "m2 s-3", "z" );
     stats.add_prof("v2_shear" , "Shear production term in V2 budget" , "m2 s-3", "z" );
@@ -173,6 +177,14 @@ void Budget::exec_stats(Mask* m)
                 umodel, vmodel,
                 grid.utrans, grid.vtrans,
                 m->profs["ke"].data, m->profs["tke"].data);
+
+        calc_mom_budget(fields.u->data, fields.v->data, fields.w->data,
+                        fields.atmp["tmp1"]->data, fields.atmp["tmp2"]->data,
+                        umodel, vmodel,
+                        m->profs["u_turb"].data,
+                        m->profs["u_visc"].data,
+                        grid.dzi4, grid.dzhi4,
+                        fields.visc);
 
         calc_tke_budget_shear_turb(fields.u->data, fields.v->data, fields.w->data,
                                    fields.atmp["tmp1"]->data, fields.atmp["tmp2"]->data,
@@ -305,6 +317,16 @@ void Budget::calc_ke(double* restrict u, double* restrict v, double* restrict w,
         ke [k] /= n;
         tke[k] /= n;
     }
+}
+
+void Budget::calc_mom_budget(const double* const restrict u, const double* const restrict v, const double* const restrict w,
+                             double* const restrict wx, double* const restrict wy,
+                             const double* const restrict umean, const double* const restrict vmean,
+                             double* const restrict u_turb,
+                             double* const restrict u_visc,
+                             const double* const restrict dzi4, const double* const restrict dzhi4,
+                             const double visc)
+{
 }
 
 void Budget::calc_tke_budget_shear_turb(double* restrict u, double* restrict v, double* restrict w,
