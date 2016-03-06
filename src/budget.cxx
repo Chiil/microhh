@@ -327,6 +327,91 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
                              const double* const restrict dzi4, const double* const restrict dzhi4,
                              const double visc)
 {
+    const int ii1 = 1;
+    const int ii2 = 2;
+    const int ii3 = 3;
+    const int jj1 = 1*grid.icells;
+    const int jj2 = 2*grid.icells;
+    const int jj3 = 3*grid.icells;
+    const int kk1 = 1*grid.ijcells;
+    const int kk2 = 2*grid.ijcells;
+    const int kk3 = 3*grid.ijcells;
+
+    // bottom boundary
+    int k = grid.kstart;
+    u_turb[k] = 0.;
+    u_visc[k] = 0.;
+
+    for (int j=grid.jstart; j<grid.jend; ++j)
+        #pragma ivdep
+        for (int i=grid.istart; i<grid.iend; ++i)
+        {
+            const int ijk = i + j*jj1 + k*kk1;
+            u_turb[k] -= ( cg0*((ci0*w[ijk-ii2-kk1] + ci1*w[ijk-ii1-kk1] + ci2*w[ijk-kk1] + ci3*w[ijk+ii1-kk1]) * (bi0*u[ijk-kk2] + bi1*u[ijk-kk1] + bi2*u[ijk    ] + bi3*u[ijk+kk1]))
+                         + cg1*((ci0*w[ijk-ii2    ] + ci1*w[ijk-ii1    ] + ci2*w[ijk    ] + ci3*w[ijk+ii1    ]) * (ci0*u[ijk-kk2] + ci1*u[ijk-kk1] + ci2*u[ijk    ] + ci3*u[ijk+kk1]))
+                         + cg2*((ci0*w[ijk-ii2+kk1] + ci1*w[ijk-ii1+kk1] + ci2*w[ijk+kk1] + ci3*w[ijk+ii1+kk1]) * (ci0*u[ijk-kk1] + ci1*u[ijk    ] + ci2*u[ijk+kk1] + ci3*u[ijk+kk2]))
+                         + cg3*((ci0*w[ijk-ii2+kk2] + ci1*w[ijk-ii1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+ii1+kk2]) * (ci0*u[ijk    ] + ci1*u[ijk+kk1] + ci2*u[ijk+kk2] + ci3*u[ijk+kk3])) )
+                       * dzi4[k];
+
+            u_visc[k] += visc * ( cg0*(bg0*u[ijk-kk2] + bg1*u[ijk-kk1] + bg2*u[ijk    ] + bg3*u[ijk+kk1]) * dzhi4[k-1]
+                                + cg1*(cg0*u[ijk-kk2] + cg1*u[ijk-kk1] + cg2*u[ijk    ] + cg3*u[ijk+kk1]) * dzhi4[k  ]
+                                + cg2*(cg0*u[ijk-kk1] + cg1*u[ijk    ] + cg2*u[ijk+kk1] + cg3*u[ijk+kk2]) * dzhi4[k+1]
+                                + cg3*(cg0*u[ijk    ] + cg1*u[ijk+kk1] + cg2*u[ijk+kk2] + cg3*u[ijk+kk3]) * dzhi4[k+2] )
+                              * dzi4[k];
+        }
+
+    // interior
+    for (int k=grid.kstart+1; k<grid.kend-1; ++k)
+    {
+        for (int j=grid.jstart; j<grid.jend; ++j)
+            #pragma ivdep
+            for (int i=grid.istart; i<grid.iend; ++i)
+            {
+                const int ijk = i + j*jj1 + k*kk1;
+                u_turb[k] -= ( cg0*((ci0*w[ijk-ii2-kk1] + ci1*w[ijk-ii1-kk1] + ci2*w[ijk-kk1] + ci3*w[ijk+ii1-kk1]) * (ci0*u[ijk-kk3] + ci1*u[ijk-kk2] + ci2*u[ijk-kk1] + ci3*u[ijk    ]))
+                             + cg1*((ci0*w[ijk-ii2    ] + ci1*w[ijk-ii1    ] + ci2*w[ijk    ] + ci3*w[ijk+ii1    ]) * (ci0*u[ijk-kk2] + ci1*u[ijk-kk1] + ci2*u[ijk    ] + ci3*u[ijk+kk1]))
+                             + cg2*((ci0*w[ijk-ii2+kk1] + ci1*w[ijk-ii1+kk1] + ci2*w[ijk+kk1] + ci3*w[ijk+ii1+kk1]) * (ci0*u[ijk-kk1] + ci1*u[ijk    ] + ci2*u[ijk+kk1] + ci3*u[ijk+kk2]))
+                             + cg3*((ci0*w[ijk-ii2+kk2] + ci1*w[ijk-ii1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+ii1+kk2]) * (ci0*u[ijk    ] + ci1*u[ijk+kk1] + ci2*u[ijk+kk2] + ci3*u[ijk+kk3])) )
+                           * dzi4[k];
+
+                u_visc[k] += visc * ( cg0*(cg0*u[ijk-kk3] + cg1*u[ijk-kk2] + cg2*u[ijk-kk1] + cg3*u[ijk    ]) * dzhi4[k-1]
+                                    + cg1*(cg0*u[ijk-kk2] + cg1*u[ijk-kk1] + cg2*u[ijk    ] + cg3*u[ijk+kk1]) * dzhi4[k  ]
+                                    + cg2*(cg0*u[ijk-kk1] + cg1*u[ijk    ] + cg2*u[ijk+kk1] + cg3*u[ijk+kk2]) * dzhi4[k+1]
+                                    + cg3*(cg0*u[ijk    ] + cg1*u[ijk+kk1] + cg2*u[ijk+kk2] + cg3*u[ijk+kk3]) * dzhi4[k+2] )
+                                  * dzi4[k];
+            }
+    }
+
+    // top boundary
+    k = grid.kend-1;
+    for (int j=grid.jstart; j<grid.jend; ++j)
+        #pragma ivdep
+        for (int i=grid.istart; i<grid.iend; ++i)
+        {
+            const int ijk = i + j*jj1 + k*kk1;
+            u_turb[k] -= ( cg0*((ci0*w[ijk-ii2-kk1] + ci1*w[ijk-ii1-kk1] + ci2*w[ijk-kk1] + ci3*w[ijk+ii1-kk1]) * (ci0*u[ijk-kk3] + ci1*u[ijk-kk2] + ci2*u[ijk-kk1] + ci3*u[ijk    ]))
+                         + cg1*((ci0*w[ijk-ii2    ] + ci1*w[ijk-ii1    ] + ci2*w[ijk    ] + ci3*w[ijk+ii1    ]) * (ci0*u[ijk-kk2] + ci1*u[ijk-kk1] + ci2*u[ijk    ] + ci3*u[ijk+kk1]))
+                         + cg2*((ci0*w[ijk-ii2+kk1] + ci1*w[ijk-ii1+kk1] + ci2*w[ijk+kk1] + ci3*w[ijk+ii1+kk1]) * (ci0*u[ijk-kk1] + ci1*u[ijk    ] + ci2*u[ijk+kk1] + ci3*u[ijk+kk2]))
+                         + cg3*((ci0*w[ijk-ii2+kk2] + ci1*w[ijk-ii1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+ii1+kk2]) * (ti0*u[ijk-kk1] + ti1*u[ijk    ] + ti2*u[ijk+kk1] + ti3*u[ijk+kk2])) )
+                       * dzi4[k-1];
+
+            u_visc[k] += visc * ( cg0*(cg0*u[ijk-kk3] + cg1*u[ijk-kk2] + cg2*u[ijk-kk1] + cg3*u[ijk    ]) * dzhi4[k-2]
+                                + cg1*(cg0*u[ijk-kk2] + cg1*u[ijk-kk1] + cg2*u[ijk    ] + cg3*u[ijk+kk1]) * dzhi4[k-1]
+                                + cg2*(cg0*u[ijk-kk1] + cg1*u[ijk    ] + cg2*u[ijk+kk1] + cg3*u[ijk+kk2]) * dzhi4[k  ]
+                                + cg3*(tg0*u[ijk-kk1] + tg1*u[ijk    ] + tg2*u[ijk+kk1] + tg3*u[ijk+kk2]) * dzhi4[k+1] )
+                              * dzi4[k-1];
+        }
+
+    // create the profiles
+    master.sum(u_turb, grid.kcells);
+    master.sum(u_visc, grid.kcells);
+
+    const int n = grid.itot*grid.jtot;
+    for (int k=grid.kstart; k<grid.kend; ++k)
+    {
+        u_turb[k] /= n;
+        u_visc[k] /= n;
+    }
 }
 
 void Budget::calc_tke_budget_shear_turb(double* restrict u, double* restrict v, double* restrict w,

@@ -4,8 +4,8 @@ import netCDF4
 
 from pylab import *
 
-start = 18
-end   = 22
+start = 14
+end   = 18
 plotens = False
 
 stats = netCDF4.Dataset("moser180.default.0000000.nc","r")
@@ -26,6 +26,10 @@ ufluxt = stats.variables["uflux"][start:end,:]
 bwt    = stats.variables["bw"]   [start:end,:]
 bdifft = stats.variables["bdiff"][start:end,:]
 bfluxt = stats.variables["bflux"][start:end,:]
+
+# momentum budgets
+u_turbt  = stats.variables["u_turb"][start:end,:]
+u_visct  = stats.variables["u_visc"][start:end,:]
 
 # variance budgets
 u2_sheart = stats.variables["u2_shear"][start:end,:]
@@ -96,6 +100,10 @@ uflux = numpy.mean(ufluxt,0)
 bw    = numpy.mean(bwt,0)
 bdiff = numpy.mean(bdifft,0)
 bflux = numpy.mean(bfluxt,0)
+
+u_turb = numpy.mean(u_turbt,0)
+u_visc = numpy.mean(u_visct,0)
+u_resid = u_turb + u_visc
 
 u2_shear = numpy.mean(u2_sheart,0)
 u2_turb  = numpy.mean(u2_turbt ,0)
@@ -196,6 +204,20 @@ plot(yplus [starty:endy], (bvar[starty:endy] / (bflux[0]/ustar)**2.)**.5, 'm-', 
 xlabel('y+')
 ylabel('rms')
 legend(loc=0, frameon=False)
+grid()
+xlim(0, 100)
+
+figure()
+if(plotens):
+  for n in range(end-start):
+    plot(yplus[starty:endy], u_turbt [n,starty:endy] * visc / ustar**4., color='#cccccc')
+    plot(yplus[starty:endy], u_visct [n,starty:endy] * visc / ustar**4., color='#cccccc')
+plot(yplus[starty:endy], u_turb [starty:endy] * visc / ustar**4., 'g-', label='Tt')
+plot(yplus[starty:endy], u_visc [starty:endy] * visc / ustar**4., 'c-', label='Tv')
+plot(yplus[starty:endy], u_resid[starty:endy] * visc / ustar**4., 'k--', label='resid')
+xlabel('y+')
+ylabel('u')
+legend(loc=0, ncol=2, frameon=False)
 grid()
 xlim(0, 100)
 
