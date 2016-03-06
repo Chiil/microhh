@@ -35,11 +35,14 @@
 
 using namespace Finite_difference::O4;
 
-Budget::Budget(Input* inputin, Master* masterin, Grid* gridin, Fields* fieldsin, Thermo* thermoin, Stats* statsin) :
+Budget::Budget(Input* inputin, Master* masterin, Grid* gridin, Fields* fieldsin,
+               Thermo* thermoin, Force* forcein,
+               Stats* statsin) :
     master(*masterin),
     grid(*gridin),
     fields(*fieldsin),
     thermo(*thermoin),
+    force(*forcein),
     stats(*statsin)
 {
     umodel = 0;

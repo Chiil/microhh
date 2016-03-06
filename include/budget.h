@@ -31,12 +31,15 @@ class Stats;
 class Grid;
 class Fields;
 class Thermo;
+class Force;
 struct Mask;
 
 class Budget
 {
     public:
-        Budget(Input*, Master*, Grid*, Fields*, Thermo*, Stats*);
+        Budget(Input*, Master*, Grid*, Fields*,
+               Thermo*, Force*,
+               Stats*);
         ~Budget();
 
         void init();
@@ -49,6 +52,7 @@ class Budget
         Grid&   grid;
         Fields& fields;
         Thermo& thermo;
+        Force&  force;
         Stats&  stats;
 
         std::string swbudget;
