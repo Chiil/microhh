@@ -191,7 +191,7 @@ void Force::create(Input *inputin)
 void Force::exec(double dt)
 {
     if (swlspres == "uflux")
-        calc_flux(fields->ut->data, fields->u->data, grid->dz, dt);
+        calc_flux(fields->ut->data, fields->u->data, grid->dz, dt, uflux_force);
 
     else if (swlspres == "geo")
     {
@@ -281,7 +281,8 @@ void Force::update_time_dependent_profs(const double fac0, const double fac1, co
 #endif
 
 void Force::calc_flux(double* const restrict ut, const double* const restrict u, 
-                      const double* const restrict dz, const double dt)
+                      const double* const restrict dz, const double dt,
+                      double uflux_force)
 {
     const int jj = grid->icells;
     const int kk = grid->ijcells;
@@ -307,11 +308,10 @@ void Force::calc_flux(double* const restrict ut, const double* const restrict u,
     uavg  = uavg  / (grid->itot*grid->jtot*grid->zsize);
     utavg = utavg / (grid->itot*grid->jtot*grid->zsize);
 
-    double fbody; 
-    fbody = (uflux - uavg - ugrid) / dt - utavg;
+    uflux_force = (uflux - uavg - ugrid) / dt - utavg;
 
     for (int n=0; n<grid->ncells; n++)
-        ut[n] += fbody;
+        ut[n] += uflux_force;
 }
 
 void Force::calc_coriolis_2nd(double* const restrict ut, double* const restrict vt,

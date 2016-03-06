@@ -72,6 +72,7 @@ class Force
         std::string swwls;    ///< Switch for large-scale vertical transport of scalars.
 
         double uflux; ///< Mean velocity used to enforce constant flux.
+        double uflux_force; ///< Mean pressure force required for constant flux.
         double fc;    ///< Coriolis parameter.
 
         double* ug;  ///< Pointer to array u-component geostrophic wind.
@@ -87,7 +88,8 @@ class Force
         void update_time_dependent_profs(double, double, int, int); ///< Set the time dependent profiles.
 
         void calc_flux(double* const, const double* const,
-                       const double* const, const double);  ///< Calculates the pressure force to enforce a constant mass-flux.
+                       const double* const, const double,
+                       double);  ///< Calculates the pressure force to enforce a constant mass-flux.
 
         void calc_coriolis_2nd(double* const, double* const,
                                const double* const, const double* const,
