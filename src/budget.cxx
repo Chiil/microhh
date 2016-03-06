@@ -30,6 +30,7 @@
 #include "finite_difference.h"
 #include "model.h"
 #include "thermo.h"
+#include "force.h"
 #include "stats.h"
 #include <netcdfcpp.h>
 
@@ -186,6 +187,7 @@ void Budget::exec_stats(Mask* m)
                         umodel, vmodel,
                         m->profs["u_turb"].data,
                         m->profs["u_visc"].data,
+                        m->profs["u_ls"].data,
                         grid.dzi4, grid.dzhi4,
                         fields.visc);
 
@@ -327,6 +329,7 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
                              const double* const restrict umean, const double* const restrict vmean,
                              double* const restrict u_turb,
                              double* const restrict u_visc,
+                             double* const restrict u_ls,
                              const double* const restrict dzi4, const double* const restrict dzhi4,
                              const double visc)
 {
@@ -415,6 +418,9 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
         u_turb[k] /= n;
         u_visc[k] /= n;
     }
+
+    // Set the large scale pressure force.
+    force.get_pressure_force_prof(u_ls);
 }
 
 void Budget::calc_tke_budget_shear_turb(double* restrict u, double* restrict v, double* restrict w,

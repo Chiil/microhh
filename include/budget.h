@@ -70,6 +70,7 @@ class Budget
                              const double* const, const double* const,
                              double* const,
                              double* const,
+                             double* const,
                              const double* const, const double* const,
                              const double);
 

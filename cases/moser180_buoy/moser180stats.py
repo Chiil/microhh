@@ -4,8 +4,8 @@ import netCDF4
 
 from pylab import *
 
-start = 14
-end   = 18
+start = 8
+end   = 10
 plotens = False
 
 stats = netCDF4.Dataset("moser180.default.0000000.nc","r")
@@ -30,6 +30,7 @@ bfluxt = stats.variables["bflux"][start:end,:]
 # momentum budgets
 u_turbt  = stats.variables["u_turb"][start:end,:]
 u_visct  = stats.variables["u_visc"][start:end,:]
+u_lst    = stats.variables["u_ls"  ][start:end,:]
 
 # variance budgets
 u2_sheart = stats.variables["u2_shear"][start:end,:]
@@ -103,7 +104,8 @@ bflux = numpy.mean(bfluxt,0)
 
 u_turb = numpy.mean(u_turbt,0)
 u_visc = numpy.mean(u_visct,0)
-u_resid = u_turb + u_visc
+u_ls   = numpy.mean(u_lst  ,0)
+u_resid = u_turb + u_visc + u_ls
 
 u2_shear = numpy.mean(u2_sheart,0)
 u2_turb  = numpy.mean(u2_turbt ,0)
@@ -177,6 +179,8 @@ starty = 0
 endy   = z.size / 2
 
 close('all')
+
+"""
 figure()
 if(plotens):
  for n in range(end-start):
@@ -206,6 +210,7 @@ ylabel('rms')
 legend(loc=0, frameon=False)
 grid()
 xlim(0, 100)
+"""
 
 figure()
 if(plotens):
@@ -221,6 +226,7 @@ legend(loc=0, ncol=2, frameon=False)
 grid()
 xlim(0, 100)
 
+"""
 figure()
 if(plotens):
   for n in range(end-start):
@@ -398,3 +404,4 @@ ylabel('bflux')
 legend(loc=0, frameon=False)
 grid()
 axis([0., 2., -0.1, 1.1])
+"""

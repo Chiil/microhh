@@ -191,7 +191,7 @@ void Force::create(Input *inputin)
 void Force::exec(double dt)
 {
     if (swlspres == "uflux")
-        calc_flux(fields->ut->data, fields->u->data, grid->dz, dt, uflux_force);
+        calc_flux(fields->ut->data, fields->u->data, grid->dz, dt);
 
     else if (swlspres == "geo")
     {
@@ -260,6 +260,23 @@ void Force::update_time_dependent()
     update_time_dependent_profs(fac0, fac1, index0, index1);
 }
 
+void Force::get_pressure_force_prof(double* const restrict pressure_prof)
+{
+    if (swlspres == "uflux")
+    {
+        const double uflux_force = this->uflux_force;
+        #pragma ivdep
+        for (int k=grid->kstart; k<grid->kend; ++k)
+            pressure_prof[k] = uflux_force;
+    }
+    else
+    {
+        // Set the profile to zero, there is no large scale pressure force.
+        for (int k=grid->kstart; k<grid->kend; ++k)
+            pressure_prof[k] = 0;
+    }
+}
+
 #ifndef USECUDA
 void Force::update_time_dependent_profs(const double fac0, const double fac1, const int index0, const int index1)
 {
@@ -281,8 +298,7 @@ void Force::update_time_dependent_profs(const double fac0, const double fac1, co
 #endif
 
 void Force::calc_flux(double* const restrict ut, const double* const restrict u, 
-                      const double* const restrict dz, const double dt,
-                      double uflux_force)
+                      const double* const restrict dz, const double dt)
 {
     const int jj = grid->icells;
     const int kk = grid->ijcells;
@@ -308,10 +324,12 @@ void Force::calc_flux(double* const restrict ut, const double* const restrict u,
     uavg  = uavg  / (grid->itot*grid->jtot*grid->zsize);
     utavg = utavg / (grid->itot*grid->jtot*grid->zsize);
 
-    uflux_force = (uflux - uavg - ugrid) / dt - utavg;
+    const double fbody = (uflux - uavg - ugrid) / dt - utavg;
 
     for (int n=0; n<grid->ncells; n++)
-        ut[n] += uflux_force;
+        ut[n] += fbody;
+
+    uflux_force = fbody;
 }
 
 void Force::calc_coriolis_2nd(double* const restrict ut, double* const restrict vt,

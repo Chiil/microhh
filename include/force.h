@@ -52,7 +52,9 @@ class Force
 
         void update_time_dependent(); ///< Update the time dependent parameters.
 
-        std::vector<std::string> lslist;         ///< List of variables that have large-scale forcings.
+        void get_pressure_force_prof(double*); ///< Get a vertical profile of the large-scale pressure force.
+
+        std::vector<std::string> lslist; ///< List of variables that have large-scale forcings.
         std::map<std::string, double*> lsprofs; ///< Map of profiles with forcings stored by its name.
 
         // GPU functions and variables
@@ -88,8 +90,7 @@ class Force
         void update_time_dependent_profs(double, double, int, int); ///< Set the time dependent profiles.
 
         void calc_flux(double* const, const double* const,
-                       const double* const, const double,
-                       double);  ///< Calculates the pressure force to enforce a constant mass-flux.
+                       const double* const, const double); ///< Calculates the pressure force to enforce a constant mass-flux.
 
         void calc_coriolis_2nd(double* const, double* const,
                                const double* const, const double* const,
