@@ -66,8 +66,6 @@ class Budget
                      double*, double*);
 
         void calc_mom_budget(const double* const, const double* const, const double* const,
-                             double* const, double* const,
-                             const double* const, const double* const,
                              double* const, double* const, double* const,
                              double* const, double* const,
                              double* const, double* const,

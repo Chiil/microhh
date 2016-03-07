@@ -195,8 +195,6 @@ void Budget::exec_stats(Mask* m)
                 m->profs["ke"].data, m->profs["tke"].data);
 
         calc_mom_budget(fields.u->data, fields.v->data, fields.w->data,
-                        fields.atmp["tmp1"]->data, fields.atmp["tmp2"]->data,
-                        umodel, vmodel,
                         m->profs["u_turb"].data, m->profs["v_turb"].data, m->profs["w_turb"].data,
                         m->profs["u_visc"].data, m->profs["v_visc"].data,
                         m->profs["u_ls"].data, m->profs["v_ls"].data,
@@ -342,8 +340,6 @@ void Budget::calc_ke(double* restrict u, double* restrict v, double* restrict w,
 }
 
 void Budget::calc_mom_budget(const double* const restrict u, const double* const restrict v, const double* const restrict w,
-                             double* const restrict wx, double* const restrict wy,
-                             const double* const restrict umean, const double* const restrict vmean,
                              double* const restrict u_turb, double* const restrict v_turb, double* const restrict w_turb,
                              double* const restrict u_visc, double* const restrict v_visc,
                              double* const restrict u_ls, double* const restrict v_ls,
