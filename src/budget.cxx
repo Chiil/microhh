@@ -99,7 +99,10 @@ void Budget::create()
     stats.add_prof("v_ls", "Large scale pressure force in V budget", "m s-2", "z");
 
     if (thermo.get_switch() != "0")
+    {
         stats.add_prof("w_buoy", "Buoyancy term in W budget", "m s-2", "zh");
+        stats.add_prof("w_pres", "Pressure term in W budget", "m s-2", "zh");
+    }
 
     // add the profiles for the kinetic energy budget to the statistics
     stats.add_prof("u2_shear" , "Shear production term in U2 budget" , "m2 s-3", "z" );
@@ -195,15 +198,11 @@ void Budget::exec_stats(Mask* m)
         calc_mom_budget(fields.u->data, fields.v->data, fields.w->data,
                         fields.atmp["tmp1"]->data, fields.atmp["tmp2"]->data,
                         umodel, vmodel,
-                        m->profs["u_turb"].data, m->profs["v_turb"].data, m->profs["w_turb"].data,
-                        m->profs["u_visc"].data, m->profs["v_visc"].data, m->profs["w_visc"].data,
+                        m->profs["u_turb"].data, m->profs["v_turb"].data,
+                        m->profs["u_visc"].data, m->profs["v_visc"].data,
                         m->profs["u_ls"].data, m->profs["v_ls"].data,
                         grid.dzi4, grid.dzhi4,
                         fields.visc);
-
-        if (thermo.get_switch() != "0")
-        {}
-
 
         calc_tke_budget_shear_turb(fields.u->data, fields.v->data, fields.w->data,
                                    fields.atmp["tmp1"]->data, fields.atmp["tmp2"]->data,
@@ -229,6 +228,11 @@ void Budget::exec_stats(Mask* m)
 
             grid.calc_mean(fields.atmp["tmp1"]->datamean, fields.atmp["tmp1"]->data, grid.kcells);
             grid.calc_mean(fields.sd["p"]->datamean, fields.sd["p"]->data, grid.kcells);
+
+            calc_mom_budget_buoy(fields.u->data, fields.v->data, fields.w->data,
+                                 fields.sd["p"]->data, fields.atmp["tmp1"]->data,
+                                 m->profs["w_pres"].data, m->profs["w_buoy"].data,
+                                 grid.dzi4, grid.dzhi4);
 
             calc_tke_budget_buoy(fields.u->data, fields.w->data, fields.atmp["tmp1"]->data,
                                  umodel, fields.atmp["tmp1"]->datamean,
@@ -341,31 +345,28 @@ void Budget::calc_ke(double* restrict u, double* restrict v, double* restrict w,
 void Budget::calc_mom_budget(const double* const restrict u, const double* const restrict v, const double* const restrict w,
                              double* const restrict wx, double* const restrict wy,
                              const double* const restrict umean, const double* const restrict vmean,
-                             double* const restrict u_turb, double* const restrict v_turb, double* const restrict w_turb,
-                             double* const restrict u_visc, double* const restrict v_visc, double* const restrict w_visc,
+                             double* const restrict u_turb, double* const restrict v_turb,
+                             double* const restrict u_visc, double* const restrict v_visc,
                              double* const restrict u_ls, double* const restrict v_ls,
                              const double* const restrict dzi4, const double* const restrict dzhi4,
                              const double visc)
 {
     const int ii1 = 1;
     const int ii2 = 2;
-    const int ii3 = 3;
     const int jj1 = 1*grid.icells;
     const int jj2 = 2*grid.icells;
-    const int jj3 = 3*grid.icells;
     const int kk1 = 1*grid.ijcells;
     const int kk2 = 2*grid.ijcells;
     const int kk3 = 3*grid.ijcells;
 
-    // bottom boundary
+    // ADVECTION AND DIFFUSION FOR U AND V
+    // Bottom boundary
     int k = grid.kstart;
     u_turb[k] = 0.;
     v_turb[k] = 0.;
-    w_turb[k] = 0.;
 
     u_visc[k] = 0.;
     v_visc[k] = 0.;
-    w_visc[k] = 0.;
 
     for (int j=grid.jstart; j<grid.jend; ++j)
         #pragma ivdep
@@ -378,14 +379,26 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
                          + cg3*((ci0*w[ijk-ii2+kk2] + ci1*w[ijk-ii1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+ii1+kk2]) * (ci0*u[ijk    ] + ci1*u[ijk+kk1] + ci2*u[ijk+kk2] + ci3*u[ijk+kk3])) )
                        * dzi4[k];
 
+            v_turb[k] -= ( cg0*((ci0*w[ijk-jj2-kk1] + ci1*w[ijk-jj1-kk1] + ci2*w[ijk-kk1] + ci3*w[ijk+jj1-kk1]) * (bi0*v[ijk-kk2] + bi1*v[ijk-kk1] + bi2*v[ijk    ] + bi3*v[ijk+kk1]))
+                         + cg1*((ci0*w[ijk-jj2    ] + ci1*w[ijk-jj1    ] + ci2*w[ijk    ] + ci3*w[ijk+jj1    ]) * (ci0*v[ijk-kk2] + ci1*v[ijk-kk1] + ci2*v[ijk    ] + ci3*v[ijk+kk1]))
+                         + cg2*((ci0*w[ijk-jj2+kk1] + ci1*w[ijk-jj1+kk1] + ci2*w[ijk+kk1] + ci3*w[ijk+jj1+kk1]) * (ci0*v[ijk-kk1] + ci1*v[ijk    ] + ci2*v[ijk+kk1] + ci3*v[ijk+kk2]))
+                         + cg3*((ci0*w[ijk-jj2+kk2] + ci1*w[ijk-jj1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+jj1+kk2]) * (ci0*v[ijk    ] + ci1*v[ijk+kk1] + ci2*v[ijk+kk2] + ci3*v[ijk+kk3])) )
+                       * dzi4[k];
+
             u_visc[k] += visc * ( cg0*(bg0*u[ijk-kk2] + bg1*u[ijk-kk1] + bg2*u[ijk    ] + bg3*u[ijk+kk1]) * dzhi4[k-1]
                                 + cg1*(cg0*u[ijk-kk2] + cg1*u[ijk-kk1] + cg2*u[ijk    ] + cg3*u[ijk+kk1]) * dzhi4[k  ]
                                 + cg2*(cg0*u[ijk-kk1] + cg1*u[ijk    ] + cg2*u[ijk+kk1] + cg3*u[ijk+kk2]) * dzhi4[k+1]
                                 + cg3*(cg0*u[ijk    ] + cg1*u[ijk+kk1] + cg2*u[ijk+kk2] + cg3*u[ijk+kk3]) * dzhi4[k+2] )
                               * dzi4[k];
+
+            v_visc[k] += visc * ( cg0*(bg0*v[ijk-kk2] + bg1*v[ijk-kk1] + bg2*v[ijk    ] + bg3*v[ijk+kk1]) * dzhi4[k-1]
+                                + cg1*(cg0*v[ijk-kk2] + cg1*v[ijk-kk1] + cg2*v[ijk    ] + cg3*v[ijk+kk1]) * dzhi4[k  ]
+                                + cg2*(cg0*v[ijk-kk1] + cg1*v[ijk    ] + cg2*v[ijk+kk1] + cg3*v[ijk+kk2]) * dzhi4[k+1]
+                                + cg3*(cg0*v[ijk    ] + cg1*v[ijk+kk1] + cg2*v[ijk+kk2] + cg3*v[ijk+kk3]) * dzhi4[k+2] )
+                              * dzi4[k];
         }
 
-    // interior
+    // Interior
     for (int k=grid.kstart+1; k<grid.kend-1; ++k)
     {
         for (int j=grid.jstart; j<grid.jend; ++j)
@@ -399,15 +412,27 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
                              + cg3*((ci0*w[ijk-ii2+kk2] + ci1*w[ijk-ii1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+ii1+kk2]) * (ci0*u[ijk    ] + ci1*u[ijk+kk1] + ci2*u[ijk+kk2] + ci3*u[ijk+kk3])) )
                            * dzi4[k];
 
+                v_turb[k] -= ( cg0*((ci0*w[ijk-jj2-kk1] + ci1*w[ijk-jj1-kk1] + ci2*w[ijk-kk1] + ci3*w[ijk+jj1-kk1]) * (ci0*v[ijk-kk3] + ci1*v[ijk-kk2] + ci2*v[ijk-kk1] + ci3*v[ijk    ]))
+                             + cg1*((ci0*w[ijk-jj2    ] + ci1*w[ijk-jj1    ] + ci2*w[ijk    ] + ci3*w[ijk+jj1    ]) * (ci0*v[ijk-kk2] + ci1*v[ijk-kk1] + ci2*v[ijk    ] + ci3*v[ijk+kk1]))
+                             + cg2*((ci0*w[ijk-jj2+kk1] + ci1*w[ijk-jj1+kk1] + ci2*w[ijk+kk1] + ci3*w[ijk+jj1+kk1]) * (ci0*v[ijk-kk1] + ci1*v[ijk    ] + ci2*v[ijk+kk1] + ci3*v[ijk+kk2]))
+                             + cg3*((ci0*w[ijk-jj2+kk2] + ci1*w[ijk-jj1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+jj1+kk2]) * (ci0*v[ijk    ] + ci1*v[ijk+kk1] + ci2*v[ijk+kk2] + ci3*v[ijk+kk3])) )
+                           * dzi4[k];
+
                 u_visc[k] += visc * ( cg0*(cg0*u[ijk-kk3] + cg1*u[ijk-kk2] + cg2*u[ijk-kk1] + cg3*u[ijk    ]) * dzhi4[k-1]
                                     + cg1*(cg0*u[ijk-kk2] + cg1*u[ijk-kk1] + cg2*u[ijk    ] + cg3*u[ijk+kk1]) * dzhi4[k  ]
                                     + cg2*(cg0*u[ijk-kk1] + cg1*u[ijk    ] + cg2*u[ijk+kk1] + cg3*u[ijk+kk2]) * dzhi4[k+1]
                                     + cg3*(cg0*u[ijk    ] + cg1*u[ijk+kk1] + cg2*u[ijk+kk2] + cg3*u[ijk+kk3]) * dzhi4[k+2] )
                                   * dzi4[k];
+
+                v_visc[k] += visc * ( cg0*(cg0*v[ijk-kk3] + cg1*v[ijk-kk2] + cg2*v[ijk-kk1] + cg3*v[ijk    ]) * dzhi4[k-1]
+                                    + cg1*(cg0*v[ijk-kk2] + cg1*v[ijk-kk1] + cg2*v[ijk    ] + cg3*v[ijk+kk1]) * dzhi4[k  ]
+                                    + cg2*(cg0*v[ijk-kk1] + cg1*v[ijk    ] + cg2*v[ijk+kk1] + cg3*v[ijk+kk2]) * dzhi4[k+1]
+                                    + cg3*(cg0*v[ijk    ] + cg1*v[ijk+kk1] + cg2*v[ijk+kk2] + cg3*v[ijk+kk3]) * dzhi4[k+2] )
+                                  * dzi4[k];
             }
     }
 
-    // top boundary
+    // Top boundary
     k = grid.kend-1;
     for (int j=grid.jstart; j<grid.jend; ++j)
         #pragma ivdep
@@ -420,26 +445,85 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
                          + cg3*((ci0*w[ijk-ii2+kk2] + ci1*w[ijk-ii1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+ii1+kk2]) * (ti0*u[ijk-kk1] + ti1*u[ijk    ] + ti2*u[ijk+kk1] + ti3*u[ijk+kk2])) )
                        * dzi4[k-1];
 
+            v_turb[k] -= ( cg0*((ci0*w[ijk-jj2-kk1] + ci1*w[ijk-jj1-kk1] + ci2*w[ijk-kk1] + ci3*w[ijk+jj1-kk1]) * (ci0*v[ijk-kk3] + ci1*v[ijk-kk2] + ci2*v[ijk-kk1] + ci3*v[ijk    ]))
+                         + cg1*((ci0*w[ijk-jj2    ] + ci1*w[ijk-jj1    ] + ci2*w[ijk    ] + ci3*w[ijk+jj1    ]) * (ci0*v[ijk-kk2] + ci1*v[ijk-kk1] + ci2*v[ijk    ] + ci3*v[ijk+kk1]))
+                         + cg2*((ci0*w[ijk-jj2+kk1] + ci1*w[ijk-jj1+kk1] + ci2*w[ijk+kk1] + ci3*w[ijk+jj1+kk1]) * (ci0*v[ijk-kk1] + ci1*v[ijk    ] + ci2*v[ijk+kk1] + ci3*v[ijk+kk2]))
+                         + cg3*((ci0*w[ijk-jj2+kk2] + ci1*w[ijk-jj1+kk2] + ci2*w[ijk+kk2] + ci3*w[ijk+jj1+kk2]) * (ti0*v[ijk-kk1] + ti1*v[ijk    ] + ti2*v[ijk+kk1] + ti3*v[ijk+kk2])) )
+                       * dzi4[k-1];
+
             u_visc[k] += visc * ( cg0*(cg0*u[ijk-kk3] + cg1*u[ijk-kk2] + cg2*u[ijk-kk1] + cg3*u[ijk    ]) * dzhi4[k-2]
                                 + cg1*(cg0*u[ijk-kk2] + cg1*u[ijk-kk1] + cg2*u[ijk    ] + cg3*u[ijk+kk1]) * dzhi4[k-1]
                                 + cg2*(cg0*u[ijk-kk1] + cg1*u[ijk    ] + cg2*u[ijk+kk1] + cg3*u[ijk+kk2]) * dzhi4[k  ]
                                 + cg3*(tg0*u[ijk-kk1] + tg1*u[ijk    ] + tg2*u[ijk+kk1] + tg3*u[ijk+kk2]) * dzhi4[k+1] )
                               * dzi4[k-1];
+
+            v_visc[k] += visc * ( cg0*(cg0*v[ijk-kk3] + cg1*v[ijk-kk2] + cg2*v[ijk-kk1] + cg3*v[ijk    ]) * dzhi4[k-2]
+                                + cg1*(cg0*v[ijk-kk2] + cg1*v[ijk-kk1] + cg2*v[ijk    ] + cg3*v[ijk+kk1]) * dzhi4[k-1]
+                                + cg2*(cg0*v[ijk-kk1] + cg1*v[ijk    ] + cg2*v[ijk+kk1] + cg3*v[ijk+kk2]) * dzhi4[k  ]
+                                + cg3*(tg0*v[ijk-kk1] + tg1*v[ijk    ] + tg2*v[ijk+kk1] + tg3*v[ijk+kk2]) * dzhi4[k+1] )
+                              * dzi4[k-1];
         }
 
     // create the profiles
     master.sum(u_turb, grid.kcells);
+    master.sum(v_turb, grid.kcells);
+
     master.sum(u_visc, grid.kcells);
+    master.sum(v_visc, grid.kcells);
 
     const int n = grid.itot*grid.jtot;
     for (int k=grid.kstart; k<grid.kend; ++k)
     {
         u_turb[k] /= n;
+        v_turb[k] /= n;
+
         u_visc[k] /= n;
+        v_visc[k] /= n;
+    }
+
+    for (int k=grid.kstart; k<grid.kend+1; ++k)
+    {
     }
 
     // Set the large scale pressure force.
     force.get_pressure_force_prof(u_ls, v_ls);
+}
+
+void Budget::calc_mom_budget_buoy(const double* const restrict u, const double* const restrict v, const double* const restrict w,
+                                  const double* const restrict p, const double* const restrict b,
+                                  double* const restrict w_pres, double* const restrict w_buoy,
+                                  const double* const restrict dzi4, const double* const restrict dzhi4)
+{
+    const int jj1 = 1*grid.icells;
+    const int kk1 = 1*grid.ijcells;
+    const int kk2 = 2*grid.ijcells;
+
+    // PRESSURE AND BUOYANCY TENDENCY FOR W
+    for (int k=grid.kstart; k<grid.kend+1; ++k)
+    {
+        w_pres[k] = 0.;
+        w_buoy[k] = 0.;
+
+        for (int j=grid.jstart; j<grid.jend; ++j)
+            #pragma ivdep
+            for (int i=grid.istart; i<grid.iend; ++i)
+            {
+                const int ijk = i + j*jj1 + k*kk1;
+                w_pres[k] -= (cg0*p[ijk-kk2] + cg1*p[ijk-kk1] + cg2*p[ijk] + cg3*p[ijk+kk1]) * dzhi4[k];
+                w_buoy[k] += interp4(b[ijk-kk2], b[ijk-kk1], b[ijk], b[ijk+kk1]);
+            }
+    }
+
+    // Create the profiles.
+    master.sum(w_pres, grid.kcells);
+    master.sum(w_buoy, grid.kcells);
+
+    const int n = grid.itot*grid.jtot;
+    for (int k=grid.kstart; k<grid.kend+1; ++k)
+    {
+        w_pres[k] /= n;
+        w_buoy[k] /= n;
+    }
 }
 
 void Budget::calc_tke_budget_shear_turb(double* restrict u, double* restrict v, double* restrict w,

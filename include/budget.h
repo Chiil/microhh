@@ -68,11 +68,16 @@ class Budget
         void calc_mom_budget(const double* const, const double* const, const double* const,
                              double* const, double* const,
                              const double* const, const double* const,
-                             double* const, double* const, double* const,
-                             double* const, double* const, double* const,
+                             double* const, double* const,
+                             double* const, double* const,
                              double* const, double* const,
                              const double* const, const double* const,
                              const double);
+
+        void calc_mom_budget_buoy(const double* const, const double* const, const double* const,
+                                  const double* const, const double* const,
+                                  double* const, double* const,
+                                  const double* const, const double* const);
 
         void calc_tke_budget_shear_turb(double*, double*, double*,
                                         double*, double*,
