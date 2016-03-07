@@ -4,9 +4,9 @@ import netCDF4
 
 from pylab import *
 
-start = 8
-end   = 10
-plotens = False
+start = 16
+end   = 36
+plotens = True
 
 stats = netCDF4.Dataset("moser180.default.0000000.nc","r")
 t  = stats.variables["t"] [start:end]
@@ -217,8 +217,10 @@ if(plotens):
   for n in range(end-start):
     plot(yplus[starty:endy], u_turbt [n,starty:endy] * visc / ustar**4., color='#cccccc')
     plot(yplus[starty:endy], u_visct [n,starty:endy] * visc / ustar**4., color='#cccccc')
+    plot(yplus[starty:endy], u_lst   [n,starty:endy] * visc / ustar**4., color='#cccccc')
 plot(yplus[starty:endy], u_turb [starty:endy] * visc / ustar**4., 'g-', label='Tt')
 plot(yplus[starty:endy], u_visc [starty:endy] * visc / ustar**4., 'c-', label='Tv')
+plot(yplus[starty:endy], u_ls   [starty:endy] * visc / ustar**4., 'b-', label='Fls')
 plot(yplus[starty:endy], u_resid[starty:endy] * visc / ustar**4., 'k--', label='resid')
 xlabel('y+')
 ylabel('u')

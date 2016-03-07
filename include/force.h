@@ -52,7 +52,7 @@ class Force
 
         void update_time_dependent(); ///< Update the time dependent parameters.
 
-        void get_pressure_force_prof(double*); ///< Get a vertical profile of the large-scale pressure force.
+        void get_pressure_force_prof(double*, double*); ///< Get a vertical profile of the large-scale pressure force.
 
         std::vector<std::string> lslist; ///< List of variables that have large-scale forcings.
         std::map<std::string, double*> lsprofs; ///< Map of profiles with forcings stored by its name.

@@ -260,20 +260,26 @@ void Force::update_time_dependent()
     update_time_dependent_profs(fac0, fac1, index0, index1);
 }
 
-void Force::get_pressure_force_prof(double* const restrict pressure_prof)
+void Force::get_pressure_force_prof(double* const restrict u_pressure_prof, double* const restrict v_pressure_prof)
 {
     if (swlspres == "uflux")
     {
         const double uflux_force = this->uflux_force;
         #pragma ivdep
         for (int k=grid->kstart; k<grid->kend; ++k)
-            pressure_prof[k] = uflux_force;
+        {
+            u_pressure_prof[k] = uflux_force;
+            v_pressure_prof[k] = 0;
+        }
     }
     else
     {
         // Set the profile to zero, there is no large scale pressure force.
         for (int k=grid->kstart; k<grid->kend; ++k)
-            pressure_prof[k] = 0;
+        {
+            u_pressure_prof[k] = 0;
+            v_pressure_prof[k] = 0;
+        }
     }
 }
 

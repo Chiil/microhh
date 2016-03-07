@@ -87,9 +87,19 @@ void Budget::create()
     stats.add_prof("ke" , "Kinetic energy" , "m2 s-2", "z");
     stats.add_prof("tke", "Turbulent kinetic energy" , "m2 s-2", "z");
 
-    stats.add_prof("u_turb", "Turbulent transport term in U budget", "m s-2", "z");
-    stats.add_prof("u_visc", "Viscous transport term in U budget", "m s-2", "z");
-    stats.add_prof("u_ls"  , "Large scale pressure force in U budget", "m s-2", "z");
+    stats.add_prof("u_turb", "Turbulent transport term in U budget", "m s-2", "z" );
+    stats.add_prof("v_turb", "Turbulent transport term in V budget", "m s-2", "z" );
+    stats.add_prof("w_turb", "Turbulent transport term in W budget", "m s-2", "zh");
+
+    stats.add_prof("u_visc", "Viscous transport term in U budget", "m s-2", "z" );
+    stats.add_prof("v_visc", "Viscous transport term in V budget", "m s-2", "z" );
+    stats.add_prof("w_visc", "Viscous transport term in W budget", "m s-2", "zh");
+
+    stats.add_prof("u_ls", "Large scale pressure force in U budget", "m s-2", "z");
+    stats.add_prof("v_ls", "Large scale pressure force in V budget", "m s-2", "z");
+
+    if (thermo.get_switch() != "0")
+        stats.add_prof("w_buoy", "Buoyancy term in W budget", "m s-2", "zh");
 
     // add the profiles for the kinetic energy budget to the statistics
     stats.add_prof("u2_shear" , "Shear production term in U2 budget" , "m2 s-3", "z" );
@@ -185,11 +195,15 @@ void Budget::exec_stats(Mask* m)
         calc_mom_budget(fields.u->data, fields.v->data, fields.w->data,
                         fields.atmp["tmp1"]->data, fields.atmp["tmp2"]->data,
                         umodel, vmodel,
-                        m->profs["u_turb"].data,
-                        m->profs["u_visc"].data,
-                        m->profs["u_ls"].data,
+                        m->profs["u_turb"].data, m->profs["v_turb"].data, m->profs["w_turb"].data,
+                        m->profs["u_visc"].data, m->profs["v_visc"].data, m->profs["w_visc"].data,
+                        m->profs["u_ls"].data, m->profs["v_ls"].data,
                         grid.dzi4, grid.dzhi4,
                         fields.visc);
+
+        if (thermo.get_switch() != "0")
+        {}
+
 
         calc_tke_budget_shear_turb(fields.u->data, fields.v->data, fields.w->data,
                                    fields.atmp["tmp1"]->data, fields.atmp["tmp2"]->data,
@@ -327,9 +341,9 @@ void Budget::calc_ke(double* restrict u, double* restrict v, double* restrict w,
 void Budget::calc_mom_budget(const double* const restrict u, const double* const restrict v, const double* const restrict w,
                              double* const restrict wx, double* const restrict wy,
                              const double* const restrict umean, const double* const restrict vmean,
-                             double* const restrict u_turb,
-                             double* const restrict u_visc,
-                             double* const restrict u_ls,
+                             double* const restrict u_turb, double* const restrict v_turb, double* const restrict w_turb,
+                             double* const restrict u_visc, double* const restrict v_visc, double* const restrict w_visc,
+                             double* const restrict u_ls, double* const restrict v_ls,
                              const double* const restrict dzi4, const double* const restrict dzhi4,
                              const double visc)
 {
@@ -346,7 +360,12 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
     // bottom boundary
     int k = grid.kstart;
     u_turb[k] = 0.;
+    v_turb[k] = 0.;
+    w_turb[k] = 0.;
+
     u_visc[k] = 0.;
+    v_visc[k] = 0.;
+    w_visc[k] = 0.;
 
     for (int j=grid.jstart; j<grid.jend; ++j)
         #pragma ivdep
@@ -420,7 +439,7 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
     }
 
     // Set the large scale pressure force.
-    force.get_pressure_force_prof(u_ls);
+    force.get_pressure_force_prof(u_ls, v_ls);
 }
 
 void Budget::calc_tke_budget_shear_turb(double* restrict u, double* restrict v, double* restrict w,
