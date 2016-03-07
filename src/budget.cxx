@@ -93,7 +93,6 @@ void Budget::create()
 
     stats.add_prof("u_visc", "Viscous transport term in U budget", "m s-2", "z" );
     stats.add_prof("v_visc", "Viscous transport term in V budget", "m s-2", "z" );
-    stats.add_prof("w_visc", "Viscous transport term in W budget", "m s-2", "zh");
 
     stats.add_prof("u_ls", "Large scale pressure force in U budget", "m s-2", "z");
     stats.add_prof("v_ls", "Large scale pressure force in V budget", "m s-2", "z");
@@ -198,7 +197,7 @@ void Budget::exec_stats(Mask* m)
         calc_mom_budget(fields.u->data, fields.v->data, fields.w->data,
                         fields.atmp["tmp1"]->data, fields.atmp["tmp2"]->data,
                         umodel, vmodel,
-                        m->profs["u_turb"].data, m->profs["v_turb"].data,
+                        m->profs["u_turb"].data, m->profs["v_turb"].data, m->profs["w_turb"].data,
                         m->profs["u_visc"].data, m->profs["v_visc"].data,
                         m->profs["u_ls"].data, m->profs["v_ls"].data,
                         grid.dzi4, grid.dzhi4,
@@ -345,7 +344,7 @@ void Budget::calc_ke(double* restrict u, double* restrict v, double* restrict w,
 void Budget::calc_mom_budget(const double* const restrict u, const double* const restrict v, const double* const restrict w,
                              double* const restrict wx, double* const restrict wy,
                              const double* const restrict umean, const double* const restrict vmean,
-                             double* const restrict u_turb, double* const restrict v_turb,
+                             double* const restrict u_turb, double* const restrict v_turb, double* const restrict w_turb,
                              double* const restrict u_visc, double* const restrict v_visc,
                              double* const restrict u_ls, double* const restrict v_ls,
                              const double* const restrict dzi4, const double* const restrict dzhi4,
@@ -401,6 +400,12 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
     // Interior
     for (int k=grid.kstart+1; k<grid.kend-1; ++k)
     {
+        u_turb[k] = 0.;
+        v_turb[k] = 0.;
+
+        u_visc[k] = 0.;
+        v_visc[k] = 0.;
+
         for (int j=grid.jstart; j<grid.jend; ++j)
             #pragma ivdep
             for (int i=grid.istart; i<grid.iend; ++i)
@@ -434,6 +439,13 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
 
     // Top boundary
     k = grid.kend-1;
+
+    u_turb[k] = 0.;
+    v_turb[k] = 0.;
+
+    u_visc[k] = 0.;
+    v_visc[k] = 0.;
+
     for (int j=grid.jstart; j<grid.jend; ++j)
         #pragma ivdep
         for (int i=grid.istart; i<grid.iend; ++i)
@@ -464,9 +476,60 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
                               * dzi4[k-1];
         }
 
+    // THE W BUDGET
+    // Bottom boundary.
+    k = grid.kstart+1;
+    w_turb[k] = 0.;
+    for (int j=grid.jstart; j<grid.jend; ++j)
+        #pragma ivdep
+        for (int i=grid.istart; i<grid.iend; ++i)
+        {
+            const int ijk = i + j*jj1 + k*kk1;
+            w_turb[k] -= ( cg0*((bi0*w[ijk-kk2] + bi1*w[ijk-kk1] + bi2*w[ijk    ] + bi3*w[ijk+kk1]) * (bi0*w[ijk-kk2] + bi1*w[ijk-kk1] + bi2*w[ijk    ] + bi3*w[ijk+kk1]))
+                         + cg1*((ci0*w[ijk-kk2] + ci1*w[ijk-kk1] + ci2*w[ijk    ] + ci3*w[ijk+kk1]) * (ci0*w[ijk-kk2] + ci1*w[ijk-kk1] + ci2*w[ijk    ] + ci3*w[ijk+kk1]))
+                         + cg2*((ci0*w[ijk-kk1] + ci1*w[ijk    ] + ci2*w[ijk+kk1] + ci3*w[ijk+kk2]) * (ci0*w[ijk-kk1] + ci1*w[ijk    ] + ci2*w[ijk+kk1] + ci3*w[ijk+kk2]))
+                         + cg3*((ci0*w[ijk    ] + ci1*w[ijk+kk1] + ci2*w[ijk+kk2] + ci3*w[ijk+kk3]) * (ci0*w[ijk    ] + ci1*w[ijk+kk1] + ci2*w[ijk+kk2] + ci3*w[ijk+kk3])) )
+                       * dzhi4[k+1];
+        }
+
+    // Interior.
+    for (int k=grid.kstart+2; k<grid.kend-1; ++k)
+    {
+        w_turb[k] = 0.;
+        for (int j=grid.jstart; j<grid.jend; ++j)
+            #pragma ivdep
+            for (int i=grid.istart; i<grid.iend; ++i)
+            {
+                const int ijk = i + j*jj1 + k*kk1;
+                w_turb[k] -= ( cg0*((ci0*w[ijk-kk3] + ci1*w[ijk-kk2] + ci2*w[ijk-kk1] + ci3*w[ijk    ]) * (ci0*w[ijk-kk3] + ci1*w[ijk-kk2] + ci2*w[ijk-kk1] + ci3*w[ijk    ]))
+                             + cg1*((ci0*w[ijk-kk2] + ci1*w[ijk-kk1] + ci2*w[ijk    ] + ci3*w[ijk+kk1]) * (ci0*w[ijk-kk2] + ci1*w[ijk-kk1] + ci2*w[ijk    ] + ci3*w[ijk+kk1]))
+                             + cg2*((ci0*w[ijk-kk1] + ci1*w[ijk    ] + ci2*w[ijk+kk1] + ci3*w[ijk+kk2]) * (ci0*w[ijk-kk1] + ci1*w[ijk    ] + ci2*w[ijk+kk1] + ci3*w[ijk+kk2]))
+                             + cg3*((ci0*w[ijk    ] + ci1*w[ijk+kk1] + ci2*w[ijk+kk2] + ci3*w[ijk+kk3]) * (ci0*w[ijk    ] + ci1*w[ijk+kk1] + ci2*w[ijk+kk2] + ci3*w[ijk+kk3])) )
+                           * dzhi4[k];
+            }
+    }
+
+    // Top boundary
+    k = grid.kend-1;
+    w_turb[k] = 0.;
+
+    for (int j=grid.jstart; j<grid.jend; ++j)
+        #pragma ivdep
+        for (int i=grid.istart; i<grid.iend; ++i)
+        {
+            const int ijk = i + j*jj1 + k*kk1;
+            w_turb[k] -= ( cg0*((ci0*w[ijk-kk3] + ci1*w[ijk-kk2] + ci2*w[ijk-kk1] + ci3*w[ijk    ]) * (ci0*w[ijk-kk3] + ci1*w[ijk-kk2] + ci2*w[ijk-kk1] + ci3*w[ijk    ]))
+                         + cg1*((ci0*w[ijk-kk2] + ci1*w[ijk-kk1] + ci2*w[ijk    ] + ci3*w[ijk+kk1]) * (ci0*w[ijk-kk2] + ci1*w[ijk-kk1] + ci2*w[ijk    ] + ci3*w[ijk+kk1]))
+                         + cg2*((ci0*w[ijk-kk1] + ci1*w[ijk    ] + ci2*w[ijk+kk1] + ci3*w[ijk+kk2]) * (ci0*w[ijk-kk1] + ci1*w[ijk    ] + ci2*w[ijk+kk1] + ci3*w[ijk+kk2]))
+                         + cg3*((ti0*w[ijk-kk1] + ti1*w[ijk    ] + ti2*w[ijk+kk1] + ti3*w[ijk+kk2]) * (ti0*w[ijk-kk1] + ti1*w[ijk    ] + ti2*w[ijk+kk1] + ti3*w[ijk+kk2])) )
+                       * dzhi4[k-1];
+        }
+
+
     // create the profiles
     master.sum(u_turb, grid.kcells);
     master.sum(v_turb, grid.kcells);
+    master.sum(w_turb, grid.kcells);
 
     master.sum(u_visc, grid.kcells);
     master.sum(v_visc, grid.kcells);
@@ -483,6 +546,7 @@ void Budget::calc_mom_budget(const double* const restrict u, const double* const
 
     for (int k=grid.kstart; k<grid.kend+1; ++k)
     {
+        w_turb[k] /= n;
     }
 
     // Set the large scale pressure force.

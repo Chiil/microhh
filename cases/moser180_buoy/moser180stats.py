@@ -4,8 +4,8 @@ import netCDF4
 
 from pylab import *
 
-start = 16
-end   = 36
+start = 5
+end   = 6
 plotens = True
 
 stats = netCDF4.Dataset("moser180.default.0000000.nc","r")
@@ -31,6 +31,10 @@ bfluxt = stats.variables["bflux"][start:end,:]
 u_turbt  = stats.variables["u_turb"][start:end,:]
 u_visct  = stats.variables["u_visc"][start:end,:]
 u_lst    = stats.variables["u_ls"  ][start:end,:]
+
+w_turbt  = stats.variables["w_turb"][start:end,:]
+w_prest  = stats.variables["w_pres"][start:end,:]
+w_buoyt  = stats.variables["w_buoy"][start:end,:]
 
 # variance budgets
 u2_sheart = stats.variables["u2_shear"][start:end,:]
@@ -106,6 +110,11 @@ u_turb = numpy.mean(u_turbt,0)
 u_visc = numpy.mean(u_visct,0)
 u_ls   = numpy.mean(u_lst  ,0)
 u_resid = u_turb + u_visc + u_ls
+
+w_turb = numpy.mean(w_turbt,0)
+w_pres = numpy.mean(w_prest,0)
+w_buoy = numpy.mean(w_buoyt,0)
+w_resid = w_turb + w_pres + w_buoy
 
 u2_shear = numpy.mean(u2_sheart,0)
 u2_turb  = numpy.mean(u2_turbt ,0)
@@ -215,15 +224,31 @@ xlim(0, 100)
 figure()
 if(plotens):
   for n in range(end-start):
-    plot(yplus[starty:endy], u_turbt [n,starty:endy] * visc / ustar**4., color='#cccccc')
-    plot(yplus[starty:endy], u_visct [n,starty:endy] * visc / ustar**4., color='#cccccc')
-    plot(yplus[starty:endy], u_lst   [n,starty:endy] * visc / ustar**4., color='#cccccc')
-plot(yplus[starty:endy], u_turb [starty:endy] * visc / ustar**4., 'g-', label='Tt')
-plot(yplus[starty:endy], u_visc [starty:endy] * visc / ustar**4., 'c-', label='Tv')
-plot(yplus[starty:endy], u_ls   [starty:endy] * visc / ustar**4., 'b-', label='Fls')
-plot(yplus[starty:endy], u_resid[starty:endy] * visc / ustar**4., 'k--', label='resid')
+    plot(yplus[starty:endy], u_turbt [n,starty:endy] * visc**2 / ustar**3, color='#cccccc')
+    plot(yplus[starty:endy], u_visct [n,starty:endy] * visc**2 / ustar**3, color='#cccccc')
+    plot(yplus[starty:endy], u_lst   [n,starty:endy] * visc**2 / ustar**3, color='#cccccc')
+plot(yplus[starty:endy], u_turb [starty:endy] * visc**2 / ustar**3, 'g-', label='Tt')
+plot(yplus[starty:endy], u_visc [starty:endy] * visc**2 / ustar**3, 'c-', label='Tv')
+plot(yplus[starty:endy], u_ls   [starty:endy] * visc**2 / ustar**3, 'b-', label='Fls')
+plot(yplus[starty:endy], u_resid[starty:endy] * visc**2 / ustar**3, 'k--', label='resid')
 xlabel('y+')
 ylabel('u')
+legend(loc=0, ncol=2, frameon=False)
+grid()
+xlim(0, 100)
+
+figure()
+if(plotens):
+  for n in range(end-start):
+    plot(yplush[starty:endy], w_turbt[n,starty:endy] * visc**2 / ustar**3, color='#cccccc')
+    plot(yplush[starty:endy], w_prest[n,starty:endy] * visc**2 / ustar**3, color='#cccccc')
+    plot(yplush[starty:endy], w_buoyt[n,starty:endy] * visc**2 / ustar**3, color='#cccccc')
+plot(yplush[starty:endy], w_turb [starty:endy] * visc**2 / ustar**3, 'g-' , label='Tt')
+plot(yplush[starty:endy], w_pres [starty:endy] * visc**2 / ustar**3, 'c-' , label='Tv')
+plot(yplush[starty:endy], w_buoy [starty:endy] * visc**2 / ustar**3, 'b-' , label='Fls')
+plot(yplush[starty:endy], w_resid[starty:endy] * visc**2 / ustar**3, 'k--', label='resid')
+xlabel('y+')
+ylabel('w')
 legend(loc=0, ncol=2, frameon=False)
 grid()
 xlim(0, 100)
