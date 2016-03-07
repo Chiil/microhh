@@ -77,6 +77,12 @@ class Budget
                                   double* const, double* const,
                                   const double* const, const double* const);
 
+        void calc_buoy_budget(const double* const, const double* const,
+                              double* const,
+                              double* const,
+                              const double* const, const double* const,
+                              const double);
+
         void calc_tke_budget_shear_turb(double*, double*, double*,
                                         double*, double*,
                                         double*, double*,

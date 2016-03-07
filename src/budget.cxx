@@ -87,12 +87,12 @@ void Budget::create()
     stats.add_prof("ke" , "Kinetic energy" , "m2 s-2", "z");
     stats.add_prof("tke", "Turbulent kinetic energy" , "m2 s-2", "z");
 
-    stats.add_prof("u_turb", "Turbulent transport term in U budget", "m s-2", "z" );
-    stats.add_prof("v_turb", "Turbulent transport term in V budget", "m s-2", "z" );
-    stats.add_prof("w_turb", "Turbulent transport term in W budget", "m s-2", "zh");
+    stats.add_prof("u_turb", "Advection term in U budget", "m s-2", "z" );
+    stats.add_prof("v_turb", "Advection term in V budget", "m s-2", "z" );
+    stats.add_prof("w_turb", "Advection term in W budget", "m s-2", "zh");
 
-    stats.add_prof("u_visc", "Viscous transport term in U budget", "m s-2", "z" );
-    stats.add_prof("v_visc", "Viscous transport term in V budget", "m s-2", "z" );
+    stats.add_prof("u_visc", "Diffusion term in U budget", "m s-2", "z" );
+    stats.add_prof("v_visc", "Diffusion term in V budget", "m s-2", "z" );
 
     stats.add_prof("u_ls", "Large scale pressure force in U budget", "m s-2", "z");
     stats.add_prof("v_ls", "Large scale pressure force in V budget", "m s-2", "z");
@@ -101,6 +101,9 @@ void Budget::create()
     {
         stats.add_prof("w_buoy", "Buoyancy term in W budget", "m s-2", "zh");
         stats.add_prof("w_pres", "Pressure term in W budget", "m s-2", "zh");
+
+        stats.add_prof("b_turb", "Advection term in B budget", "m s-2", "z");
+        stats.add_prof("b_visc", "Pressure term in B budget" , "m s-2", "z");
     }
 
     // add the profiles for the kinetic energy budget to the statistics
@@ -230,6 +233,11 @@ void Budget::exec_stats(Mask* m)
                                  fields.sd["p"]->data, fields.atmp["tmp1"]->data,
                                  m->profs["w_pres"].data, m->profs["w_buoy"].data,
                                  grid.dzi4, grid.dzhi4);
+
+            calc_buoy_budget(fields.w->data, fields.atmp["tmp1"]->data,
+                             m->profs["b_turb"].data, m->profs["b_visc"].data,
+                             grid.dzi4, grid.dzhi4,
+                             fields.visc);
 
             calc_tke_budget_buoy(fields.u->data, fields.w->data, fields.atmp["tmp1"]->data,
                                  umodel, fields.atmp["tmp1"]->datamean,
@@ -583,6 +591,100 @@ void Budget::calc_mom_budget_buoy(const double* const restrict u, const double* 
     {
         w_pres[k] /= n;
         w_buoy[k] /= n;
+    }
+}
+
+void Budget::calc_buoy_budget(const double* const restrict w, const double* const restrict b,
+                              double* const restrict b_turb,
+                              double* const restrict b_visc,
+                              const double* const restrict dzi4, const double* const restrict dzhi4,
+                              const double visc)
+{
+    const int jj1 = 1*grid.icells;
+    const int kk1 = 1*grid.ijcells;
+    const int kk2 = 2*grid.ijcells;
+    const int kk3 = 3*grid.ijcells;
+
+    // Bottom boundary
+    int k = grid.kstart;
+    b_turb[k] = 0.;
+    b_visc[k] = 0.;
+
+    for (int j=grid.jstart; j<grid.jend; ++j)
+        #pragma ivdep
+        for (int i=grid.istart; i<grid.iend; ++i)
+        {
+            const int ijk = i + j*jj1 + k*kk1;
+            b_turb[k] -= ( cg0*(w[ijk-kk1] * (bi0*b[ijk-kk2] + bi1*b[ijk-kk1] + bi2*b[ijk    ] + bi3*b[ijk+kk1]))
+                         + cg1*(w[ijk    ] * (ci0*b[ijk-kk2] + ci1*b[ijk-kk1] + ci2*b[ijk    ] + ci3*b[ijk+kk1]))
+                         + cg2*(w[ijk+kk1] * (ci0*b[ijk-kk1] + ci1*b[ijk    ] + ci2*b[ijk+kk1] + ci3*b[ijk+kk2]))
+                         + cg3*(w[ijk+kk2] * (ci0*b[ijk    ] + ci1*b[ijk+kk1] + ci2*b[ijk+kk2] + ci3*b[ijk+kk3])) )
+                       * dzi4[k];
+
+            b_visc[k] += visc * ( cg0*(bg0*b[ijk-kk2] + bg1*b[ijk-kk1] + bg2*b[ijk    ] + bg3*b[ijk+kk1]) * dzhi4[k-1]
+                                + cg1*(cg0*b[ijk-kk2] + cg1*b[ijk-kk1] + cg2*b[ijk    ] + cg3*b[ijk+kk1]) * dzhi4[k  ]
+                                + cg2*(cg0*b[ijk-kk1] + cg1*b[ijk    ] + cg2*b[ijk+kk1] + cg3*b[ijk+kk2]) * dzhi4[k+1]
+                                + cg3*(cg0*b[ijk    ] + cg1*b[ijk+kk1] + cg2*b[ijk+kk2] + cg3*b[ijk+kk3]) * dzhi4[k+2] )
+                              * dzi4[k];
+        }
+
+    // Interior
+    for (int k=grid.kstart+1; k<grid.kend-1; ++k)
+    {
+        b_turb[k] = 0.;
+        b_visc[k] = 0.;
+
+        for (int j=grid.jstart; j<grid.jend; ++j)
+            #pragma ivdep
+            for (int i=grid.istart; i<grid.iend; ++i)
+            {
+                const int ijk = i + j*jj1 + k*kk1;
+                b_turb[k] -= ( cg0*(w[ijk-kk1] * (ci0*b[ijk-kk3] + ci1*b[ijk-kk2] + ci2*b[ijk-kk1] + ci3*b[ijk    ]))
+                             + cg1*(w[ijk    ] * (ci0*b[ijk-kk2] + ci1*b[ijk-kk1] + ci2*b[ijk    ] + ci3*b[ijk+kk1]))
+                             + cg2*(w[ijk+kk1] * (ci0*b[ijk-kk1] + ci1*b[ijk    ] + ci2*b[ijk+kk1] + ci3*b[ijk+kk2]))
+                             + cg3*(w[ijk+kk2] * (ci0*b[ijk    ] + ci1*b[ijk+kk1] + ci2*b[ijk+kk2] + ci3*b[ijk+kk3])) )
+                           * dzi4[k];
+
+                b_visc[k] += visc * ( cg0*(cg0*b[ijk-kk3] + cg1*b[ijk-kk2] + cg2*b[ijk-kk1] + cg3*b[ijk    ]) * dzhi4[k-1]
+                                    + cg1*(cg0*b[ijk-kk2] + cg1*b[ijk-kk1] + cg2*b[ijk    ] + cg3*b[ijk+kk1]) * dzhi4[k  ]
+                                    + cg2*(cg0*b[ijk-kk1] + cg1*b[ijk    ] + cg2*b[ijk+kk1] + cg3*b[ijk+kk2]) * dzhi4[k+1]
+                                    + cg3*(cg0*b[ijk    ] + cg1*b[ijk+kk1] + cg2*b[ijk+kk2] + cg3*b[ijk+kk3]) * dzhi4[k+2] )
+                                  * dzi4[k];
+            }
+    }
+
+    // Top boundary
+    k = grid.kend-1;
+    b_turb[k] = 0.;
+    b_visc[k] = 0.;
+
+    for (int j=grid.jstart; j<grid.jend; ++j)
+        #pragma ivdep
+        for (int i=grid.istart; i<grid.iend; ++i)
+        {
+            const int ijk = i + j*jj1 + k*kk1;
+            b_turb[k] -= ( cg0*(w[ijk-kk1] * (ci0*b[ijk-kk3] + ci1*b[ijk-kk2] + ci2*b[ijk-kk1] + ci3*b[ijk    ]))
+                         + cg1*(w[ijk    ] * (ci0*b[ijk-kk2] + ci1*b[ijk-kk1] + ci2*b[ijk    ] + ci3*b[ijk+kk1]))
+                         + cg2*(w[ijk+kk1] * (ci0*b[ijk-kk1] + ci1*b[ijk    ] + ci2*b[ijk+kk1] + ci3*b[ijk+kk2]))
+                         + cg3*(w[ijk+kk2] * (ti0*b[ijk-kk1] + ti1*b[ijk    ] + ti2*b[ijk+kk1] + ti3*b[ijk+kk2])) )
+                       * dzi4[k-1];
+
+            b_visc[k] += visc * ( cg0*(cg0*b[ijk-kk3] + cg1*b[ijk-kk2] + cg2*b[ijk-kk1] + cg3*b[ijk    ]) * dzhi4[k-2]
+                                + cg1*(cg0*b[ijk-kk2] + cg1*b[ijk-kk1] + cg2*b[ijk    ] + cg3*b[ijk+kk1]) * dzhi4[k-1]
+                                + cg2*(cg0*b[ijk-kk1] + cg1*b[ijk    ] + cg2*b[ijk+kk1] + cg3*b[ijk+kk2]) * dzhi4[k  ]
+                                + cg3*(tg0*b[ijk-kk1] + tg1*b[ijk    ] + tg2*b[ijk+kk1] + tg3*b[ijk+kk2]) * dzhi4[k+1] )
+                              * dzi4[k-1];
+        }
+
+    // create the profiles
+    master.sum(b_turb, grid.kcells);
+    master.sum(b_visc, grid.kcells);
+
+    const int n = grid.itot*grid.jtot;
+    for (int k=grid.kstart; k<grid.kend; ++k)
+    {
+        b_turb[k] /= n;
+        b_visc[k] /= n;
     }
 }
 
