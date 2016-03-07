@@ -4,7 +4,7 @@ import netCDF4
 
 from pylab import *
 
-size = 10
+size = 20
 plotens = True
 
 stats = netCDF4.Dataset("moser180.default.0000000.nc","r")
@@ -199,7 +199,6 @@ endy   = z.size / 2
 
 close('all')
 
-"""
 figure()
 if(plotens):
  for n in range(end-start):
@@ -229,7 +228,6 @@ ylabel('rms')
 legend(loc=0, frameon=False)
 grid()
 xlim(0, 100)
-"""
 
 figure()
 if(plotens):
@@ -277,8 +275,6 @@ legend(loc=0, ncol=2, frameon=False)
 grid()
 xlim(0, 100)
 
-
-"""
 figure()
 if(plotens):
   for n in range(end-start):
@@ -456,4 +452,3 @@ ylabel('bflux')
 legend(loc=0, frameon=False)
 grid()
 axis([0., 2., -0.1, 1.1])
-"""
