@@ -30,6 +30,8 @@ class Master;
 class Input;
 class Grid;
 class Fields;
+class Stats;
+struct Mask;
 
 /**
  * Class for radiation.
@@ -37,19 +39,23 @@ class Fields;
 class Radiation
 {
     public:
-        Radiation(Master*, Input*, Grid*, Fields*); ///< Constructor of the force class.
+        Radiation(Master*, Input*, Grid*,
+                  Fields*); ///< Constructor of the force class.
         ~Radiation();          ///< Destructor of the force class.
 
-        void init();           ///< Initialize the arrays that contain the profiles.
-        void create(Input*);   ///< Read the profiles of the forces from the input.
-        void exec();           ///< Add the tendencies belonging to the large-scale processes.
+        void init(Stats*);      ///< Initialize the arrays that contain the profiles.
+        void create(Input*);    ///< Read the profiles of the forces from the input.
+        void exec();            ///< Add the tendencies belonging to the large-scale processes.
+        void exec_stats(Mask*); ///< Add the tendencies belonging to the large-scale processes.
 
     private:
         void calc_radiation_tendency(double* restrict, double* restrict); ///< Add the radiation tendency.
+        void calc_radiation_stats(double* restrict, double* restrict); ///< Calculate radiation stats.
 
         Master* master; ///< Pointer to master class.
         Grid* grid;     ///< Pointer to grid class.
         Fields* fields; ///< Pointer to fields class.
+        Stats* stats;   ///< Pointer to stats class.
 
         double* rad_tend;  ///< Pointer to array radiation tendencies.
 

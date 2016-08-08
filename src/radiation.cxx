@@ -25,8 +25,10 @@
 #include "input.h"
 #include "grid.h"
 #include "fields.h"
+#include "stats.h"
 
-Radiation::Radiation(Master* masterin, Input* input, Grid* gridin, Fields* fieldsin)
+Radiation::Radiation(Master* masterin, Input* input, Grid* gridin,
+                     Fields* fieldsin)
 {
     master = masterin;
     grid   = gridin;
@@ -43,8 +45,11 @@ Radiation::~Radiation()
     delete[] rad_tend;
 }
 
-void Radiation::init()
+void Radiation::init(Stats* statsin)
 {
+    // Set the stats here, because stats is allocated after radiation.
+    stats = statsin;
+
     rad_tend = new double[grid->kcells];
 }
 
@@ -55,6 +60,8 @@ void Radiation::create(Input *inputin)
     // Read profiles from input
     nerror += inputin->get_prof(&rad_tend[grid->kstart], "rad_tend", grid->kmax);
     
+    stats->add_prof("rad_tend" , "Temperature tendency by radiation" , "K s-1", "z");
+
     if (nerror)
         throw 1;
 }
@@ -68,6 +75,19 @@ void Radiation::exec()
     calc_radiation_tendency(fields->st["th"]->data, rad_tend);
 }
 #endif
+
+
+void Radiation::exec_stats(Mask* m)
+{
+    calc_radiation_stats(m->profs["rad_tend"].data, rad_tend);
+}
+
+void Radiation::calc_radiation_stats(double* restrict rad_tend_prof,
+                                     double* restrict rad_tend)
+{
+    for (int k=grid->kstart; k<grid->kend; ++k)
+        rad_tend_prof[k] = rad_tend[k];
+}
 
 void Radiation::calc_radiation_tendency(double* restrict tht, double* restrict rad_tend)
 {

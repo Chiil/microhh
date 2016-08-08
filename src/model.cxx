@@ -170,7 +170,7 @@ void Model::init()
     force    ->init();
     pres     ->init();
     thermo   ->init();
-    radiation->init();
+    radiation->init(stats);
 
     stats ->init(timeloop->get_ifactor());
     cross ->init(timeloop->get_ifactor());
@@ -432,10 +432,11 @@ void Model::set_time_step()
 // Calculate the statistics for all classes that have a statistics function.
 void Model::calc_stats(std::string maskname)
 {
-    fields  ->exec_stats(&stats->masks[maskname]);
-    thermo  ->exec_stats(&stats->masks[maskname]);
-    budget  ->exec_stats(&stats->masks[maskname]);
-    boundary->exec_stats(&stats->masks[maskname]);
+    fields   ->exec_stats(&stats->masks[maskname]);
+    thermo   ->exec_stats(&stats->masks[maskname]);
+    budget   ->exec_stats(&stats->masks[maskname]);
+    boundary ->exec_stats(&stats->masks[maskname]);
+    radiation->exec_stats(&stats->masks[maskname]);
 }
 
 // Print the status information to the .out file.
