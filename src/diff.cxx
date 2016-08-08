@@ -78,7 +78,7 @@ Diff* Diff::factory(Master* masterin, Input* inputin, Model* modelin, const std:
     else if (swdiff == "smag2")
     {
         // the subgrid model requires a surface model because of the MO matching at first level
-        if (swboundary != "surface")
+        if (swboundary != "surface" && swboundary != "surface_user")
         {
             masterin->print_error("swdiff == \"smag2\" requires swboundary == \"surface\"\n");
             throw 1;
