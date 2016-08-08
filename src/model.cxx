@@ -170,7 +170,7 @@ void Model::init()
     force    ->init();
     pres     ->init();
     thermo   ->init();
-    radiation->init(stats);
+    radiation->init(thermo, stats);
 
     stats ->init(timeloop->get_ifactor());
     cross ->init(timeloop->get_ifactor());

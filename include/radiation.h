@@ -30,6 +30,7 @@ class Master;
 class Input;
 class Grid;
 class Fields;
+class Thermo;
 class Stats;
 struct Mask;
 
@@ -43,7 +44,8 @@ class Radiation
                   Fields*); ///< Constructor of the force class.
         ~Radiation();          ///< Destructor of the force class.
 
-        void init(Stats*);      ///< Initialize the arrays that contain the profiles.
+        void init(Thermo*, Stats*); ///< Initialize the arrays that contain the profiles.
+
         void create(Input*);    ///< Read the profiles of the forces from the input.
         void exec();            ///< Add the tendencies belonging to the large-scale processes.
         void exec_stats(Mask*); ///< Add the tendencies belonging to the large-scale processes.

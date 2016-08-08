@@ -25,7 +25,13 @@
 #include "input.h"
 #include "grid.h"
 #include "fields.h"
+#include "thermo.h"
 #include "stats.h"
+
+namespace
+{
+    std::string temperature_var;
+}
 
 Radiation::Radiation(Master* masterin, Input* input, Grid* gridin,
                      Fields* fieldsin)
@@ -45,12 +51,16 @@ Radiation::~Radiation()
     delete[] rad_tend;
 }
 
-void Radiation::init(Stats* statsin)
+void Radiation::init(Thermo* thermo, Stats* statsin)
 {
     // Set the stats here, because stats is allocated after radiation.
     stats = statsin;
 
     rad_tend = new double[grid->kcells];
+
+    std::vector<std::string> thermo_prog_vars;
+    thermo->get_prog_vars(&thermo_prog_vars);
+    temperature_var = thermo_prog_vars[0];
 }
 
 void Radiation::create(Input *inputin)
@@ -72,7 +82,7 @@ void Radiation::exec()
     if (swradiation == "0")
         return;
 
-    calc_radiation_tendency(fields->st["th"]->data, rad_tend);
+    calc_radiation_tendency(fields->st[temperature_var]->data, rad_tend);
 }
 #endif
 
