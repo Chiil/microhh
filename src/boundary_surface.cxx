@@ -111,6 +111,16 @@ void Boundary_surface::init(Input *inputin)
     else if (mbcbot == Ustar_type)
         nerror += inputin->get_item(&ustarin, "boundary", "ustar", "");
 
+    // READ HERE THE PATCHES
+    // Patch type.
+    nerror += inputin->get_item(&patch_dim,  "boundary", "patch_dim" , "", 2 );
+    nerror += inputin->get_item(&patch_xh,   "boundary", "patch_xh"  , "", 1.);
+    nerror += inputin->get_item(&patch_xr,   "boundary", "patch_xr"  , "", 1.);
+    nerror += inputin->get_item(&patch_xi,   "boundary", "patch_xi"  , "", 0.);
+    nerror += inputin->get_item(&patch_facr, "boundary", "patch_facr", "", 1.);
+    nerror += inputin->get_item(&patch_facl, "boundary", "patch_facl", "", 0.);
+    // END OF READING PATCHES
+ 
     // process the scalars
     for (BcMap::const_iterator it=sbc.begin(); it!=sbc.end(); ++it)
     {
@@ -228,7 +238,8 @@ void Boundary_surface::set_values()
 
     for (FieldMap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
     {
-        set_bc(it->second->databot, it->second->datagradbot, it->second->datafluxbot, sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, no_offset);
+        set_bc_patch(it->second->databot, it->second->datagradbot, it->second->datafluxbot,
+                     sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, no_offset, fields->atmp["tmp1"]->data, patch_facl, patch_facr);
         set_bc(it->second->datatop, it->second->datagradtop, it->second->datafluxtop, sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, no_offset);
     }
 
@@ -660,4 +671,67 @@ double Boundary_surface::calc_obuk_noslip_dirichlet(const float* const restrict 
     const float Ri = Constants::kappa * db * zsl / std::pow(du, 2);
 
     return zsl/find_zL(zL, f, n, Ri);
+}
+
+void Boundary_surface::set_bc_patch(double* restrict a, double* restrict agrad, double* restrict aflux, int sw, double aval, double visc, double offset,
+                                    double* restrict tmp, double facl, double facr)
+{
+    const int jj = grid->icells;
+
+    const double avall = facl*aval;
+    const double avalr = facr*aval;
+
+    double errvalx, errvaly;
+
+    // save the pattern
+    for (int j=grid->jstart; j<grid->jend; ++j)
+#pragma ivdep
+        for (int i=grid->istart; i<grid->iend; ++i)
+        {
+            const int ij = i + j*jj;
+            const double xmod = fmod(grid->x[i], patch_xh);
+            const double ymod = fmod(grid->y[j], patch_xh);
+
+            errvalx = 0.5 - 0.5*erf(2.*(std::abs(2.*xmod - patch_xh) - patch_xr) / patch_xi);
+
+            if (patch_dim == 2)
+                errvaly = 0.5 - 0.5*erf(2.*(std::abs(2.*ymod - patch_xh) - patch_xr) / patch_xi);
+            else
+                errvaly = 1.;
+
+            tmp[ij] = errvalx*errvaly;
+        }
+
+    if (sw == Dirichlet_type)
+    {
+        for (int j=0; j<grid->jcells; ++j)
+#pragma ivdep
+            for (int i=0; i<grid->icells; ++i)
+            {
+                const int ij = i + j*jj;
+                a[ij] = avall + (avalr-avall)*tmp[ij] - offset;
+            }
+    }
+    else if (sw == Neumann_type)
+    {
+        for (int j=0; j<grid->jcells; ++j)
+#pragma ivdep
+            for (int i=0; i<grid->icells; ++i)
+            {
+                const int ij = i + j*jj;
+                agrad[ij] = avall + (avalr-avall)*tmp[ij];
+                aflux[ij] = -agrad[ij]*visc;
+            }
+    }
+    else if (sw == Flux_type)
+    {
+        for (int j=0; j<grid->jcells; ++j)
+#pragma ivdep
+            for (int i=0; i<grid->icells; ++i)
+            {
+                const int ij = i + j*jj;
+                aflux[ij] = avall + (avalr-avall)*tmp[ij];
+                agrad[ij] = -aflux[ij]/visc;
+            }
+    }
 }

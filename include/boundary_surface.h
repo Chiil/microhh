@@ -104,5 +104,17 @@ class Boundary_surface : public Boundary
         float* f_sl_g;
 #endif
         int thermobc;
+
+        // Patches in LES below
+        void set_bc_patch(double*, double*, double*, int, double, double, double,
+                          double*, double, double); ///< Set the values for the boundary fields.
+
+        // Patch properties.
+        int    patch_dim;
+        double patch_xh;
+        double patch_xr;
+        double patch_xi;
+        double patch_facr;
+        double patch_facl;
 };
 #endif
