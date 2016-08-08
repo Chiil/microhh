@@ -23,8 +23,12 @@
 #ifndef RADIATION
 #define RADIATION
 
-class Model;
+#include <string>
+
+class Master;
 class Input;
+class Grid;
+class Fields;
 
 /**
  * Class for radiation.
@@ -43,5 +47,9 @@ class Radiation
         Master* master; ///< Pointer to master class.
         Grid* grid;     ///< Pointer to grid class.
         Fields* fields; ///< Pointer to fields class.
+
+        double* rad_tend;  ///< Pointer to array radiation tendencies.
+
+        std::string swradiation; ///< Switch for radiation scheme.
 };
 #endif

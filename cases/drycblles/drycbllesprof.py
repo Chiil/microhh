@@ -18,11 +18,15 @@ th   = numpy.zeros(numpy.size(z))
 thls = numpy.zeros(numpy.size(z))
 wls  = numpy.zeros(numpy.size(z))
 
+rad_tend = numpy.zeros(numpy.size(z))
+
 # linearly stratified profile
 for k in range(kmax):
     th  [k] = 300. + dthetadz*z[k]
     thls[k] = 2.*(z[k]/zsize - 0.5) / 3600.
     wls [k] = -0.01*(z[k]/zsize)
+
+rad_tend[:] = -5./3600.
 
 """
 # well mixed profile with jump
@@ -43,7 +47,7 @@ for k in range(kmax):
 
 # write the data to a file
 proffile = open('drycblles.prof','w')
-proffile.write('{0:^20s} {1:^20s} {2:^20s} {3:^20s}\n'.format('z','th','thls', 'wls'))
+proffile.write('{0:^20s} {1:^20s} {2:^20s} {3:^20s} {4:^20s}\n'.format('z','th','thls', 'wls', 'rad_tend'))
 for k in range(kmax):
-    proffile.write('{0:1.14E} {1:1.14E} {2:1.14E} {3:1.14E}\n'.format(z[k], th[k], thls[k], wls[k]))
+    proffile.write('{0:1.14E} {1:1.14E} {2:1.14E} {3:1.14E} {4:1.14E}\n'.format(z[k], th[k], thls[k], wls[k], rad_tend[k]))
 proffile.close()

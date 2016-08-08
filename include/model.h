@@ -35,6 +35,7 @@ class Advec;
 class Diff;
 class Pres;
 class Force;
+class Radiation;
 class Thermo;
 class Buffer;
 class Stats;
@@ -61,14 +62,15 @@ class Model
         Fields* fields;
 
         // Model operators.
-        Boundary* boundary;
-        Timeloop* timeloop;
-        Advec*    advec;
-        Diff*     diff;
-        Pres*     pres;  
-        Force*    force;   
-        Thermo*   thermo;
-        Buffer*   buffer;
+        Boundary*  boundary;
+        Timeloop*  timeloop;
+        Advec*     advec;
+        Diff*      diff;
+        Pres*      pres;  
+        Force*     force;   
+        Thermo*    thermo;
+        Buffer*    buffer;
+        Radiation* radiation;
 
         // Postprocessing and output modules.
         Stats*  stats;

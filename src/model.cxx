@@ -36,6 +36,8 @@
 #include "boundary.h"
 #include "buffer.h"
 #include "force.h"
+#include "radiation.h"
+
 #include "stats.h"
 #include "cross.h"
 #include "dump.h"
@@ -52,14 +54,15 @@ Model::Model(Master *masterin, Input *inputin)
     input  = inputin;
 
     // Initialize the pointers as zero
-    grid     = 0;
-    fields   = 0;
-    diff     = 0;
-    pres     = 0;
-    thermo   = 0;
-    timeloop = 0;
-    force    = 0;
-    buffer   = 0;
+    grid      = 0;
+    fields    = 0;
+    diff      = 0;
+    pres      = 0;
+    thermo    = 0;
+    timeloop  = 0;
+    force     = 0;
+    buffer    = 0;
+    radiation = 0;
 
     stats  = 0;
     cross  = 0;
@@ -81,9 +84,10 @@ Model::Model(Master *masterin, Input *inputin)
         pres     = Pres    ::factory(master, input, this, grid->swspatialorder);
         thermo   = Thermo  ::factory(master, input, this);
 
-        timeloop = new Timeloop(this, input);
-        force    = new Force   (this, input);
-        buffer   = new Buffer  (this, input);
+        timeloop  = new Timeloop (this, input);
+        force     = new Force    (this, input);
+        buffer    = new Buffer   (this, input);
+        radiation = new Radiation(master, input, grid, fields);
 
         // Create instances of the statistics classes. First create stats as it is required for init of derived stats.
         stats  = new Stats (this, input);
@@ -131,6 +135,8 @@ void Model::delete_objects()
     delete dump;
     delete cross;
     delete stats;
+
+    delete radiation;
     delete buffer;
     delete force;
     delete pres;
@@ -159,11 +165,12 @@ void Model::init()
     grid  ->init();
     fields->init();
 
-    boundary->init(input);
-    buffer  ->init();
-    force   ->init();
-    pres    ->init();
-    thermo  ->init();
+    boundary ->init(input);
+    buffer   ->init();
+    force    ->init();
+    pres     ->init();
+    thermo   ->init();
+    radiation->init();
 
     stats ->init(timeloop->get_ifactor());
     cross ->init(timeloop->get_ifactor());
@@ -192,6 +199,8 @@ void Model::load()
     buffer->create(input);
     force ->create(input);
     thermo->create(input);
+
+    radiation->create(input);
 
     budget->create();
 
@@ -272,6 +281,9 @@ void Model::exec()
 
         // Apply the large scale forcings. Keep this one always right before the pressure.
         force->exec(timeloop->get_sub_time_step());
+
+        // Calculate the radiation.
+        radiation->exec();
 
         // Solve the poisson equation for pressure.
         boundary->set_ghost_cells_w(Boundary::Conservation_type);

@@ -20,25 +20,41 @@
  * along with MicroHH.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-Radiation::Radiation(Model* modelin, Input* inputin)
+#include "radiation.h"
+#include "master.h"
+#include "input.h"
+#include "grid.h"
+#include "fields.h"
+
+Radiation::Radiation(Master* masterin, Input* input, Grid* gridin, Fields* fieldsin)
 {
-    model  = modelin;
-    grid   = model->grid;
-    fields = model->fields;
-    master = model->master;
+    master = masterin;
+    grid   = gridin;
+    fields = fieldsin;
+
+    rad_tend = 0;
+
+    // Read input options out of ini file
+    input->get_item(&swradiation, "radiation", "swradiation", "", "0");
 }
 
 Radiation::~Radiation()
 {
+    delete[] rad_tend;
 }
 
 void Radiation::init()
 {
+    rad_tend = new double[grid->kcells];
 }
 
 void Radiation::create(Input *inputin)
 {
     int nerror = 0;
+
+    // Read profiles from input
+    nerror += inputin->get_prof(&rad_tend[grid->kstart], "rad_tend", grid->kmax);
+    
     if (nerror)
         throw 1;
 }
@@ -46,5 +62,10 @@ void Radiation::create(Input *inputin)
 #ifndef USECUDA
 void Radiation::exec()
 {
+    if (swradiation == "0")
+        return;
+
+    master->print_message("Hello Frankfurt!\n");
 }
+
 #endif
