@@ -24,6 +24,7 @@
 #define RADIATION
 
 #include <string>
+#include "defines.h"
 
 class Master;
 class Input;
@@ -44,6 +45,8 @@ class Radiation
         void exec();           ///< Add the tendencies belonging to the large-scale processes.
 
     private:
+        void calc_radiation_tendency(double* restrict, double* restrict); ///< Add the radiation tendency.
+
         Master* master; ///< Pointer to master class.
         Grid* grid;     ///< Pointer to grid class.
         Fields* fields; ///< Pointer to fields class.

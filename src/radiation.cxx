@@ -65,7 +65,22 @@ void Radiation::exec()
     if (swradiation == "0")
         return;
 
-    master->print_message("Hello Frankfurt!\n");
+    calc_radiation_tendency(fields->st["th"]->data, rad_tend);
 }
-
 #endif
+
+void Radiation::calc_radiation_tendency(double* restrict tht, double* restrict rad_tend)
+{
+    const int jj = grid->icells;
+    const int kk = grid->ijcells;
+
+    for (int k=grid->kstart; k<grid->kend; ++k)
+        for (int j=grid->jstart; j<grid->jend; ++j)
+            #pragma ivdep
+            #pragma GCC ivdep
+            for (int i=grid->istart; i<grid->iend; ++i)
+            {
+                const int ijk = i + j*jj + k*kk;
+                tht[ijk] += rad_tend[k];
+            }
+}
