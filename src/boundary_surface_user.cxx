@@ -54,20 +54,14 @@ void Boundary_surface_user::init(Input* inputin)
 
 void Boundary_surface_user::set_values()
 {
+    Boundary_surface::set_values();
+
+    // Override the surface with the patch values.
     const double no_offset = 0.;
-
-    set_bc(fields->u->databot, fields->u->datagradbot, fields->u->datafluxbot, mbcbot, ubot, fields->visc, grid->utrans);
-    set_bc(fields->v->databot, fields->v->datagradbot, fields->v->datafluxbot, mbcbot, vbot, fields->visc, grid->vtrans);
-
-    set_bc(fields->u->datatop, fields->u->datagradtop, fields->u->datafluxtop, mbctop, utop, fields->visc, grid->utrans);
-    set_bc(fields->v->datatop, fields->v->datagradtop, fields->v->datafluxtop, mbctop, vtop, fields->visc, grid->vtrans);
-
     for (FieldMap::const_iterator it=fields->sp.begin(); it!=fields->sp.end(); ++it)
     {
         set_bc_patch(it->second->databot, it->second->datagradbot, it->second->datafluxbot,
                      sbc[it->first]->bcbot, sbc[it->first]->bot, it->second->visc, no_offset, fields->atmp["tmp1"]->data, patch_facl, patch_facr);
-        set_bc      (it->second->datatop, it->second->datagradtop, it->second->datafluxtop,
-                     sbc[it->first]->bctop, sbc[it->first]->top, it->second->visc, no_offset);
     }
 }
 
@@ -83,7 +77,7 @@ void Boundary_surface_user::set_bc_patch(double* restrict a, double* restrict ag
 
     // save the pattern
     for (int j=grid->jstart; j<grid->jend; ++j)
-#pragma ivdep
+        #pragma ivdep
         for (int i=grid->istart; i<grid->iend; ++i)
         {
             const int ij = i + j*jj;
@@ -103,7 +97,7 @@ void Boundary_surface_user::set_bc_patch(double* restrict a, double* restrict ag
     if (sw == Dirichlet_type)
     {
         for (int j=0; j<grid->jcells; ++j)
-#pragma ivdep
+            #pragma ivdep
             for (int i=0; i<grid->icells; ++i)
             {
                 const int ij = i + j*jj;
@@ -113,7 +107,7 @@ void Boundary_surface_user::set_bc_patch(double* restrict a, double* restrict ag
     else if (sw == Neumann_type)
     {
         for (int j=0; j<grid->jcells; ++j)
-#pragma ivdep
+            #pragma ivdep
             for (int i=0; i<grid->icells; ++i)
             {
                 const int ij = i + j*jj;
@@ -124,7 +118,7 @@ void Boundary_surface_user::set_bc_patch(double* restrict a, double* restrict ag
     else if (sw == Flux_type)
     {
         for (int j=0; j<grid->jcells; ++j)
-#pragma ivdep
+            #pragma ivdep
             for (int i=0; i<grid->icells; ++i)
             {
                 const int ij = i + j*jj;
