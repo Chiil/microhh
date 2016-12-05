@@ -31,8 +31,24 @@
 #include "finite_difference.h"
 #include "model.h"
 
-using namespace Finite_difference::O4;
-using namespace Finite_difference::O2;
+namespace
+{
+    inline double interp4_ws(const double a, const double b, const double c, const double d) 
+    {
+        const double c0 = 7./12.;
+        const double c1 = 1./12.;
+        return c0*(b + c) - c1*(a + d);
+    }
+
+    inline double interp3_ws(const double a, const double b, const double c, const double d) 
+    {
+        const double c0 = 3./12.;
+        const double c1 = 1./12.;
+        return c0*(c - b) - c1*(d - a);
+    }
+
+    using namespace Finite_difference::O2;
+}
 
 Advec_2i4::Advec_2i4(Model* modelin, Input* inputin) : Advec(modelin, inputin)
 {
@@ -106,8 +122,8 @@ double Advec_2i4::calc_cfl(double* restrict u, double* restrict v, double* restr
         for (int i=grid->istart; i<grid->iend; ++i)
         {
             const int ijk = i + j*jj1 + k*kk1;
-            cfl = std::max(cfl, std::abs(interp4(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2]))*dxi 
-                              + std::abs(interp4(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2]))*dyi 
+            cfl = std::max(cfl, std::abs(interp4_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2]))*dxi 
+                              + std::abs(interp4_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2]))*dyi 
                               + std::abs(interp2(w[ijk    ], w[ijk+kk1]))*dzi[k]);
         }
 
@@ -117,9 +133,9 @@ double Advec_2i4::calc_cfl(double* restrict u, double* restrict v, double* restr
             for (int i=grid->istart; i<grid->iend; ++i)
             {
                 const int ijk = i + j*jj1 + k*kk1;
-                cfl = std::max(cfl, std::abs(interp4(u[ijk-ii1], u[ijk], u[ijk+ii1], u[ijk+ii2]))*dxi 
-                                  + std::abs(interp4(v[ijk-jj1], v[ijk], v[ijk+jj1], v[ijk+jj2]))*dyi 
-                                  + std::abs(interp4(w[ijk-kk1], w[ijk], w[ijk+kk1], w[ijk+kk2]))*dzi[k]);
+                cfl = std::max(cfl, std::abs(interp4_ws(u[ijk-ii1], u[ijk], u[ijk+ii1], u[ijk+ii2]))*dxi 
+                                  + std::abs(interp4_ws(v[ijk-jj1], v[ijk], v[ijk+jj1], v[ijk+jj2]))*dyi 
+                                  + std::abs(interp4_ws(w[ijk-kk1], w[ijk], w[ijk+kk1], w[ijk+kk2]))*dzi[k]);
             }
 
     k = kend-1;
@@ -128,8 +144,8 @@ double Advec_2i4::calc_cfl(double* restrict u, double* restrict v, double* restr
         for (int i=grid->istart; i<grid->iend; ++i)
         {
             const int ijk  = i + j*jj1 + k*kk1;
-            cfl = std::max(cfl, std::abs(interp4(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2]))*dxi 
-                              + std::abs(interp4(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2]))*dyi 
+            cfl = std::max(cfl, std::abs(interp4_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2]))*dxi 
+                              + std::abs(interp4_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2]))*dyi 
                               + std::abs(interp2(w[ijk    ], w[ijk+kk1]))*dzi[k]);
         }
 
@@ -165,12 +181,18 @@ void Advec_2i4::advec_u(double* restrict ut, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             ut[ijk] += 
                      // u*du/dx
-                     - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
-                       - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                       - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk        ], u[ijk+ii1])) * interp3_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                       - std::abs(interp2(u[ijk-ii1    ], u[ijk    ])) * interp3_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
 
                      // v*du/dy
-                     - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
-                       - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+                     - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                       - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+
+                     + ( std::abs(interp2(v[ijk-ii1+jj1], v[ijk+jj1])) * interp3_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                       - std::abs(interp2(v[ijk-ii1    ], v[ijk    ])) * interp3_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
 
                      // w*du/dz -> second order interpolation for fluxtop, fluxbot = 0. as w=0
                      - ( rhorefh[k+1] * interp2(w[ijk-ii1+kk1], w[ijk+kk1]) * interp2(u[ijk    ], u[ijk+kk1]) ) / rhoref[k] * dzi[k];
@@ -184,16 +206,24 @@ void Advec_2i4::advec_u(double* restrict ut, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             ut[ijk] += 
                      // u*du/dx
-                     - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
-                       - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                       - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk        ], u[ijk+ii1])) * interp3_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                       - std::abs(interp2(u[ijk-ii1    ], u[ijk    ])) * interp3_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
 
                      // v*du/dy
-                     - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
-                       - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+                     - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                       - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+
+                     + ( std::abs(interp2(v[ijk-ii1+jj1], v[ijk+jj1])) * interp3_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                       - std::abs(interp2(v[ijk-ii1    ], v[ijk    ])) * interp3_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
 
                      // w*du/dz -> second order interpolation for fluxbot
-                     - ( rhorefh[k+1] * interp2(w[ijk-ii1+kk1], w[ijk+kk1]) * interp4(u[ijk-kk1], u[ijk    ], u[ijk+kk1], u[ijk+kk2])
-                       - rhorefh[k  ] * interp2(w[ijk-ii1    ], w[ijk    ]) * interp2(u[ijk-kk1], u[ijk    ]) ) / rhoref[k] * dzi[k];
+                     - ( rhorefh[k+1] * interp2(w[ijk-ii1+kk1], w[ijk+kk1]) * interp4_ws(u[ijk-kk1], u[ijk    ], u[ijk+kk1], u[ijk+kk2])
+                       - rhorefh[k  ] * interp2(w[ijk-ii1    ], w[ijk    ]) * interp2(u[ijk-kk1], u[ijk    ]) ) / rhoref[k] * dzi[k]
+
+                     + ( rhorefh[k+1] * std::abs(interp2(w[ijk-ii1+kk1], w[ijk+kk1])) * interp3_ws(u[ijk-kk1], u[ijk    ], u[ijk+kk1], u[ijk+kk2]) ) / rhoref[k] * dzi[k];
         }
 
     for (k=grid->kstart+2; k<grid->kend-2; ++k)
@@ -204,16 +234,25 @@ void Advec_2i4::advec_u(double* restrict ut, double* restrict u, double* restric
                 const int ijk = i + j*jj1 + k*kk1;
                 ut[ijk] += 
                          // u*du/dx
-                         - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
-                           - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+                         - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                           - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+
+                         + ( std::abs(interp2(u[ijk        ], u[ijk+ii1])) * interp3_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                           - std::abs(interp2(u[ijk-ii1    ], u[ijk    ])) * interp3_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
 
                          // v*du/dy
-                         - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
-                           - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+                         - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                           - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+
+                         + ( std::abs(interp2(v[ijk-ii1+jj1], v[ijk+jj1])) * interp3_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                           - std::abs(interp2(v[ijk-ii1    ], v[ijk    ])) * interp3_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
 
                          // w*du/dz
-                         - ( rhorefh[k+1] * interp2(w[ijk-ii1+kk1], w[ijk+kk1]) * interp4(u[ijk-kk1], u[ijk    ], u[ijk+kk1], u[ijk+kk2])
-                           - rhorefh[k  ] * interp2(w[ijk-ii1    ], w[ijk    ]) * interp4(u[ijk-kk2], u[ijk-kk1], u[ijk    ], u[ijk+kk1]) ) / rhoref[k] * dzi[k];
+                         - ( rhorefh[k+1] * interp2(w[ijk-ii1+kk1], w[ijk+kk1]) * interp4_ws(u[ijk-kk1], u[ijk    ], u[ijk+kk1], u[ijk+kk2])
+                           - rhorefh[k  ] * interp2(w[ijk-ii1    ], w[ijk    ]) * interp4_ws(u[ijk-kk2], u[ijk-kk1], u[ijk    ], u[ijk+kk1]) ) / rhoref[k] * dzi[k]
+
+                         + ( rhorefh[k+1] * std::abs(interp2(w[ijk-ii1+kk1], w[ijk+kk1])) * interp3_ws(u[ijk-kk1], u[ijk    ], u[ijk+kk1], u[ijk+kk2])
+                           - rhorefh[k  ] * std::abs(interp2(w[ijk-ii1    ], w[ijk    ])) * interp3_ws(u[ijk-kk2], u[ijk-kk1], u[ijk    ], u[ijk+kk1]) ) / rhoref[k] * dzi[k];
             }
 
     k = kend - 2; 
@@ -224,16 +263,24 @@ void Advec_2i4::advec_u(double* restrict ut, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             ut[ijk] += 
                      // u*du/dx
-                     - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
-                       - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                       - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk        ], u[ijk+ii1])) * interp3_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                       - std::abs(interp2(u[ijk-ii1    ], u[ijk    ])) * interp3_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
 
                      // v*du/dy
-                     - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
-                       - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+                     - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                       - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+
+                     + ( std::abs(interp2(v[ijk-ii1+jj1], v[ijk+jj1])) * interp3_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                       - std::abs(interp2(v[ijk-ii1    ], v[ijk    ])) * interp3_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
 
                      // w*du/dz -> second order interpolation for fluxtop
                      - ( rhorefh[k+1] * interp2(w[ijk-ii1+kk1], w[ijk+kk1]) * interp2(u[ijk    ], u[ijk+kk1])
-                       - rhorefh[k  ] * interp2(w[ijk-ii1    ], w[ijk    ]) * interp4(u[ijk-kk2], u[ijk-kk1], u[ijk    ], u[ijk+kk1]) ) / rhoref[k] * dzi[k];
+                       - rhorefh[k  ] * interp2(w[ijk-ii1    ], w[ijk    ]) * interp4_ws(u[ijk-kk2], u[ijk-kk1], u[ijk    ], u[ijk+kk1]) ) / rhoref[k] * dzi[k]
+
+                     - ( rhorefh[k  ] * std::abs(interp2(w[ijk-ii1    ], w[ijk    ])) * interp3_ws(u[ijk-kk2], u[ijk-kk1], u[ijk    ], u[ijk+kk1]) ) / rhoref[k] * dzi[k];
         }
 
     k = kend - 1; 
@@ -244,12 +291,18 @@ void Advec_2i4::advec_u(double* restrict ut, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             ut[ijk] += 
                      // u*du/dx
-                     - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
-                       - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk        ], u[ijk+ii1]) * interp4_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                       - interp2(u[ijk-ii1    ], u[ijk    ]) * interp4_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk        ], u[ijk+ii1])) * interp3_ws(u[ijk-ii1], u[ijk    ], u[ijk+ii1], u[ijk+ii2])
+                       - std::abs(interp2(u[ijk-ii1    ], u[ijk    ])) * interp3_ws(u[ijk-ii2], u[ijk-ii1], u[ijk    ], u[ijk+ii1]) ) * dxi
 
                      // v*du/dy
-                     - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
-                       - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+                     - ( interp2(v[ijk-ii1+jj1], v[ijk+jj1]) * interp4_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                       - interp2(v[ijk-ii1    ], v[ijk    ]) * interp4_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
+
+                     + ( std::abs(interp2(v[ijk-ii1+jj1], v[ijk+jj1])) * interp3_ws(u[ijk-jj1], u[ijk    ], u[ijk+jj1], u[ijk+jj2])
+                       - std::abs(interp2(v[ijk-ii1    ], v[ijk    ])) * interp3_ws(u[ijk-jj2], u[ijk-jj1], u[ijk    ], u[ijk+jj1]) ) * dyi 
 
                      // w*du/dz -> second order interpolation for fluxbot, fluxtop=0 as w=0
                      - ( -rhorefh[k] * interp2(w[ijk-ii1    ], w[ijk    ]) * interp2(u[ijk-kk1], u[ijk    ]) ) / rhoref[k] * dzi[k];
@@ -280,12 +333,18 @@ void Advec_2i4::advec_v(double* restrict vt, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             vt[ijk] += 
                      // u*dv/dx
-                     - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
-                       - interp2(u[ijk    -jj1], u[ijk    ]) * interp4(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                       - interp2(u[ijk    -jj1], u[ijk    ]) * interp4_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk+ii1-jj1], u[ijk+ii1])) * interp3_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                       - std::abs(interp2(u[ijk    -jj1], u[ijk    ])) * interp3_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
 
                      // v*dv/dy
-                     - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
-                       - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+                     - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                       - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+
+                     + ( std::abs(interp2(v[ijk        ], v[ijk+jj1])) * interp3_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                       - std::abs(interp2(v[ijk-jj1    ], v[ijk    ])) * interp3_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
 
                      // w*dv/dz
                      - ( rhorefh[k+1] * interp2(w[ijk-jj1+kk1], w[ijk+kk1]) * interp2(v[ijk    ], v[ijk+kk1]) ) / rhoref[k] * dzi[k];
@@ -299,16 +358,24 @@ void Advec_2i4::advec_v(double* restrict vt, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             vt[ijk] += 
                      // u*dv/dx
-                     - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
-                       - interp2(u[ijk    -jj1], u[ijk    ]) * interp4(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                       - interp2(u[ijk    -jj1], u[ijk    ]) * interp4_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk+ii1-jj1], u[ijk+ii1])) * interp3_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                       - std::abs(interp2(u[ijk    -jj1], u[ijk    ])) * interp3_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
 
                      // v*dv/dy
-                     - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
-                       - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+                     - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                       - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+
+                     + ( std::abs(interp2(v[ijk        ], v[ijk+jj1])) * interp3_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                       - std::abs(interp2(v[ijk-jj1    ], v[ijk    ])) * interp3_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
 
                      // w*dv/dz
-                     - ( rhorefh[k+1] * interp2(w[ijk-jj1+kk1], w[ijk+kk1]) * interp4(v[ijk-kk1], v[ijk    ], v[ijk+kk1], v[ijk+kk2])
-                       - rhorefh[k  ] * interp2(w[ijk-jj1    ], w[ijk    ]) * interp2(v[ijk-kk1], v[ijk    ]) ) / rhoref[k] * dzi[k];
+                     - ( rhorefh[k+1] * interp2(w[ijk-jj1+kk1], w[ijk+kk1]) * interp4_ws(v[ijk-kk1], v[ijk    ], v[ijk+kk1], v[ijk+kk2])
+                       - rhorefh[k  ] * interp2(w[ijk-jj1    ], w[ijk    ]) * interp2(v[ijk-kk1], v[ijk    ]) ) / rhoref[k] * dzi[k]
+
+                     + ( rhorefh[k+1] * std::abs(interp2(w[ijk-jj1+kk1], w[ijk+kk1])) * interp3_ws(v[ijk-kk1], v[ijk    ], v[ijk+kk1], v[ijk+kk2]) ) / rhoref[k] * dzi[k];
         }
 
     for (k=grid->kstart+2; k<grid->kend-2; ++k)
@@ -319,16 +386,25 @@ void Advec_2i4::advec_v(double* restrict vt, double* restrict u, double* restric
                 const int ijk = i + j*jj1 + k*kk1;
                 vt[ijk] += 
                          // u*dv/dx
-                         - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
-                           - interp2(u[ijk    -jj1], u[ijk    ]) * interp4(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+                         - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                           - interp2(u[ijk    -jj1], u[ijk    ]) * interp4_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+
+                         + ( std::abs(interp2(u[ijk+ii1-jj1], u[ijk+ii1])) * interp3_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                           - std::abs(interp2(u[ijk    -jj1], u[ijk    ])) * interp3_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
 
                          // v*dv/dy
-                         - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
-                           - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+                         - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                           - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+
+                         + ( std::abs(interp2(v[ijk        ], v[ijk+jj1])) * interp3_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                           - std::abs(interp2(v[ijk-jj1    ], v[ijk    ])) * interp3_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
 
                          // w*dv/dz
-                         - ( rhorefh[k+1] * interp2(w[ijk-jj1+kk1], w[ijk+kk1]) * interp4(v[ijk-kk1], v[ijk    ], v[ijk+kk1], v[ijk+kk2])
-                           - rhorefh[k  ] * interp2(w[ijk-jj1    ], w[ijk    ]) * interp4(v[ijk-kk2], v[ijk-kk1], v[ijk    ], v[ijk+kk1]) ) / rhoref[k] * dzi[k];
+                         - ( rhorefh[k+1] * interp2(w[ijk-jj1+kk1], w[ijk+kk1]) * interp4_ws(v[ijk-kk1], v[ijk    ], v[ijk+kk1], v[ijk+kk2])
+                           - rhorefh[k  ] * interp2(w[ijk-jj1    ], w[ijk    ]) * interp4_ws(v[ijk-kk2], v[ijk-kk1], v[ijk    ], v[ijk+kk1]) ) / rhoref[k] * dzi[k]
+
+                         + ( rhorefh[k+1] * std::abs(interp2(w[ijk-jj1+kk1], w[ijk+kk1])) * interp3_ws(v[ijk-kk1], v[ijk    ], v[ijk+kk1], v[ijk+kk2])
+                           - rhorefh[k  ] * std::abs(interp2(w[ijk-jj1    ], w[ijk    ])) * interp3_ws(v[ijk-kk2], v[ijk-kk1], v[ijk    ], v[ijk+kk1]) ) / rhoref[k] * dzi[k];
             }
 
     k = kend-2;
@@ -339,16 +415,24 @@ void Advec_2i4::advec_v(double* restrict vt, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             vt[ijk] += 
                      // u*dv/dx
-                     - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
-                       - interp2(u[ijk    -jj1], u[ijk    ]) * interp4(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                       - interp2(u[ijk    -jj1], u[ijk    ]) * interp4_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk+ii1-jj1], u[ijk+ii1])) * interp3_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                       - std::abs(interp2(u[ijk    -jj1], u[ijk    ])) * interp3_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
 
                      // v*dv/dy
-                     - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
-                       - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+                     - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                       - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+
+                     + ( std::abs(interp2(v[ijk        ], v[ijk+jj1])) * interp3_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                       - std::abs(interp2(v[ijk-jj1    ], v[ijk    ])) * interp3_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
 
                      // w*dv/dz
                      - ( rhorefh[k+1] * interp2(w[ijk-jj1+kk1], w[ijk+kk1]) * interp2(v[ijk    ], v[ijk+kk1])
-                       - rhorefh[k  ] * interp2(w[ijk-jj1    ], w[ijk    ]) * interp4(v[ijk-kk2], v[ijk-kk1], v[ijk    ], v[ijk+kk1]) ) / rhoref[k] * dzi[k];
+                       - rhorefh[k  ] * interp2(w[ijk-jj1    ], w[ijk    ]) * interp4_ws(v[ijk-kk2], v[ijk-kk1], v[ijk    ], v[ijk+kk1]) ) / rhoref[k] * dzi[k]
+
+                     - ( rhorefh[k  ] * std::abs(interp2(w[ijk-jj1    ], w[ijk    ])) * interp3_ws(v[ijk-kk2], v[ijk-kk1], v[ijk    ], v[ijk+kk1]) ) / rhoref[k] * dzi[k];
         }
 
     k = kend-1;
@@ -359,12 +443,18 @@ void Advec_2i4::advec_v(double* restrict vt, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             vt[ijk] +=
                      // u*dv/dx
-                     - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
-                       - interp2(u[ijk    -jj1], u[ijk    ]) * interp4(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk+ii1-jj1], u[ijk+ii1]) * interp4_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                       - interp2(u[ijk    -jj1], u[ijk    ]) * interp4_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk+ii1-jj1], u[ijk+ii1])) * interp3_ws(v[ijk-ii1], v[ijk    ], v[ijk+ii1], v[ijk+ii2])
+                       - std::abs(interp2(u[ijk    -jj1], u[ijk    ])) * interp3_ws(v[ijk-ii2], v[ijk-ii1], v[ijk    ], v[ijk+ii1]) ) * dxi
 
                      // v*dv/dy
-                     - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
-                       - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+                     - ( interp2(v[ijk        ], v[ijk+jj1]) * interp4_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                       - interp2(v[ijk-jj1    ], v[ijk    ]) * interp4_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
+
+                     + ( std::abs(interp2(v[ijk        ], v[ijk+jj1])) * interp3_ws(v[ijk-jj1], v[ijk    ], v[ijk+jj1], v[ijk+jj2])
+                       - std::abs(interp2(v[ijk-jj1    ], v[ijk    ])) * interp3_ws(v[ijk-jj2], v[ijk-jj1], v[ijk    ], v[ijk+jj1]) ) * dyi
 
                      // w*dv/dz
                      - (- rhorefh[k  ] * interp2(w[ijk-jj1    ], w[ijk    ]) * interp2(v[ijk-kk1], v[ijk    ]) ) / rhoref[k] * dzi[k];
@@ -395,16 +485,24 @@ void Advec_2i4::advec_w(double* restrict wt, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             wt[ijk] += 
                      // u*dw/dx 
-                     - ( interp2(u[ijk+ii1-kk1], u[ijk+ii1]) * interp4(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
-                       - interp2(u[ijk    -kk1], u[ijk    ]) * interp4(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk+ii1-kk1], u[ijk+ii1]) * interp4_ws(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
+                       - interp2(u[ijk    -kk1], u[ijk    ]) * interp4_ws(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk+ii1-kk1], u[ijk+ii1])) * interp3_ws(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
+                       - std::abs(interp2(u[ijk    -kk1], u[ijk    ])) * interp3_ws(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
 
                      // v*dw/dy 
-                     - ( interp2(v[ijk+jj1-kk1], v[ijk+jj1]) * interp4(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
-                       - interp2(v[ijk    -kk1], v[ijk    ]) * interp4(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
+                     - ( interp2(v[ijk+jj1-kk1], v[ijk+jj1]) * interp4_ws(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
+                       - interp2(v[ijk    -kk1], v[ijk    ]) * interp4_ws(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
+
+                     + ( std::abs(interp2(v[ijk+jj1-kk1], v[ijk+jj1])) * interp3_ws(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
+                       - std::abs(interp2(v[ijk    -kk1], v[ijk    ])) * interp3_ws(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
 
                      // w*dw/dz 
-                     - ( rhoref[k  ] * interp2(w[ijk        ], w[ijk+kk1]) * interp4(w[ijk-kk1], w[ijk    ], w[ijk+kk1], w[ijk+kk2])
-                       - rhoref[k-1] * interp2(w[ijk-kk1    ], w[ijk    ]) * interp2(w[ijk-kk1], w[ijk    ]) ) / rhorefh[k] * dzhi[k];
+                     - ( rhoref[k  ] * interp2(w[ijk        ], w[ijk+kk1]) * interp4_ws(w[ijk-kk1], w[ijk    ], w[ijk+kk1], w[ijk+kk2])
+                       - rhoref[k-1] * interp2(w[ijk-kk1    ], w[ijk    ]) * interp2(w[ijk-kk1], w[ijk    ]) ) / rhorefh[k] * dzhi[k]
+
+                     + ( rhoref[k  ] * interp2(w[ijk        ], w[ijk+kk1]) * interp4_ws(w[ijk-kk1], w[ijk    ], w[ijk+kk1], w[ijk+kk2]) ) / rhorefh[k] * dzhi[k];
         }
 
     for (k=grid->kstart+2; k<grid->kend-1; ++k)
@@ -415,16 +513,25 @@ void Advec_2i4::advec_w(double* restrict wt, double* restrict u, double* restric
                 const int ijk = i + j*jj1 + k*kk1;
                 wt[ijk] +=
                          // u*dw/dx 
-                         - ( interp2(u[ijk+ii1-kk1], u[ijk+ii1]) * interp4(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
-                           - interp2(u[ijk    -kk1], u[ijk    ]) * interp4(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
+                         - ( interp2(u[ijk+ii1-kk1], u[ijk+ii1]) * interp4_ws(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
+                           - interp2(u[ijk    -kk1], u[ijk    ]) * interp4_ws(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
+
+                         + ( std::abs(interp2(u[ijk+ii1-kk1], u[ijk+ii1])) * interp3_ws(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
+                           - std::abs(interp2(u[ijk    -kk1], u[ijk    ])) * interp3_ws(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
 
                          // v*dw/dy 
-                         - ( interp2(v[ijk+jj1-kk1], v[ijk+jj1]) * interp4(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
-                           - interp2(v[ijk    -kk1], v[ijk    ]) * interp4(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
+                         - ( interp2(v[ijk+jj1-kk1], v[ijk+jj1]) * interp4_ws(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
+                           - interp2(v[ijk    -kk1], v[ijk    ]) * interp4_ws(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
+
+                         + ( std::abs(interp2(v[ijk+jj1-kk1], v[ijk+jj1])) * interp3_ws(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
+                           - std::abs(interp2(v[ijk    -kk1], v[ijk    ])) * interp3_ws(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
 
                          // w*dw/dz 
-                         - ( rhoref[k  ] * interp2(w[ijk        ], w[ijk+kk1]) * interp4(w[ijk-kk1], w[ijk    ], w[ijk+kk1], w[ijk+kk2])
-                           - rhoref[k-1] * interp2(w[ijk-kk1    ], w[ijk    ]) * interp4(w[ijk-kk2], w[ijk-kk1], w[ijk    ], w[ijk+kk1]) ) / rhorefh[k] * dzhi[k];
+                         - ( rhoref[k  ] * interp2(w[ijk        ], w[ijk+kk1]) * interp4_ws(w[ijk-kk1], w[ijk    ], w[ijk+kk1], w[ijk+kk2])
+                           - rhoref[k-1] * interp2(w[ijk-kk1    ], w[ijk    ]) * interp4_ws(w[ijk-kk2], w[ijk-kk1], w[ijk    ], w[ijk+kk1]) ) / rhorefh[k] * dzhi[k]
+
+                         + ( rhoref[k  ] * std::abs(interp2(w[ijk        ], w[ijk+kk1])) * interp3_ws(w[ijk-kk1], w[ijk    ], w[ijk+kk1], w[ijk+kk2])
+                           - rhoref[k-1] * std::abs(interp2(w[ijk-kk1    ], w[ijk    ])) * interp3_ws(w[ijk-kk2], w[ijk-kk1], w[ijk    ], w[ijk+kk1]) ) / rhorefh[k] * dzhi[k];
             }
 
     k = kend-1;
@@ -435,16 +542,24 @@ void Advec_2i4::advec_w(double* restrict wt, double* restrict u, double* restric
             const int ijk = i + j*jj1 + k*kk1;
             wt[ijk] += 
                      // u*dw/dx 
-                     - ( interp2(u[ijk+ii1-kk1], u[ijk+ii1]) * interp4(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
-                       - interp2(u[ijk    -kk1], u[ijk    ]) * interp4(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
+                     - ( interp2(u[ijk+ii1-kk1], u[ijk+ii1]) * interp4_ws(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
+                       - interp2(u[ijk    -kk1], u[ijk    ]) * interp4_ws(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
+
+                     + ( std::abs(interp2(u[ijk+ii1-kk1], u[ijk+ii1])) * interp3_ws(w[ijk-ii1], w[ijk    ], w[ijk+ii1], w[ijk+ii2])
+                       - std::abs(interp2(u[ijk    -kk1], u[ijk    ])) * interp3_ws(w[ijk-ii2], w[ijk-ii1], w[ijk    ], w[ijk+ii1]) ) * dxi
 
                      // v*dw/dy 
-                     - ( interp2(v[ijk+jj1-kk1], v[ijk+jj1]) * interp4(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
-                       - interp2(v[ijk    -kk1], v[ijk    ]) * interp4(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
+                     - ( interp2(v[ijk+jj1-kk1], v[ijk+jj1]) * interp4_ws(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
+                       - interp2(v[ijk    -kk1], v[ijk    ]) * interp4_ws(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
+
+                     + ( std::abs(interp2(v[ijk+jj1-kk1], v[ijk+jj1])) * interp3_ws(w[ijk-jj1], w[ijk    ], w[ijk+jj1], w[ijk+jj2])
+                       - std::abs(interp2(v[ijk    -kk1], v[ijk    ])) * interp3_ws(w[ijk-jj2], w[ijk-jj1], w[ijk    ], w[ijk+jj1]) ) * dyi
 
                      // w*dw/dz 
                      - ( rhoref[k  ] * interp2(w[ijk        ], w[ijk+kk1]) * interp2(w[ijk    ], w[ijk+kk1])
-                       - rhoref[k-1] * interp2(w[ijk-kk1    ], w[ijk    ]) * interp4(w[ijk-kk2], w[ijk-kk1], w[ijk    ], w[ijk+kk1]) ) / rhorefh[k] * dzhi[k];
+                       - rhoref[k-1] * interp2(w[ijk-kk1    ], w[ijk    ]) * interp4_ws(w[ijk-kk2], w[ijk-kk1], w[ijk    ], w[ijk+kk1]) ) / rhorefh[k] * dzhi[k]
+
+                     - ( rhoref[k-1] * std::abs(interp2(w[ijk-kk1    ], w[ijk    ])) * interp3_ws(w[ijk-kk2], w[ijk-kk1], w[ijk    ], w[ijk+kk1]) ) / rhorefh[k] * dzhi[k];
         }
 }
 
@@ -472,11 +587,17 @@ void Advec_2i4::advec_s(double* restrict st, double* restrict s, double* restric
         {
             const int ijk = i + j*jj1 + k*kk1;
             st[ijk] += 
-                     - ( u[ijk+ii1] * interp4(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
-                       - u[ijk    ] * interp4(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
+                     - ( u[ijk+ii1] * interp4_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                       - u[ijk    ] * interp4_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
 
-                     - ( v[ijk+jj1] * interp4(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
-                       - v[ijk    ] * interp4(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+                     + ( std::abs(u[ijk+ii1]) * interp3_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                       - std::abs(u[ijk    ]) * interp3_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
+
+                     - ( v[ijk+jj1] * interp4_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                       - v[ijk    ] * interp4_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+
+                     + ( std::abs(v[ijk+jj1]) * interp3_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                       - std::abs(v[ijk    ]) * interp3_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
 
                      - ( rhorefh[k+1] * w[ijk+kk1] * interp2(s[ijk    ], s[ijk+kk1]) ) / rhoref[k] * dzi[k];
         }
@@ -488,14 +609,22 @@ void Advec_2i4::advec_s(double* restrict st, double* restrict s, double* restric
         {
             const int ijk = i + j*jj1 + k*kk1;
             st[ijk] += 
-                     - ( u[ijk+ii1] * interp4(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
-                       - u[ijk    ] * interp4(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
+                     - ( u[ijk+ii1] * interp4_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                       - u[ijk    ] * interp4_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
 
-                     - ( v[ijk+jj1] * interp4(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
-                       - v[ijk    ] * interp4(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+                     + ( std::abs(u[ijk+ii1]) * interp3_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                       - std::abs(u[ijk    ]) * interp3_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
 
-                     - ( rhorefh[k+1] * w[ijk+kk1] * interp4(s[ijk-kk1], s[ijk    ], s[ijk+kk1], s[ijk+kk2])
-                       - rhorefh[k  ] * w[ijk    ] * interp2(s[ijk-kk1], s[ijk    ]) ) / rhoref[k] * dzi[k];
+                     - ( v[ijk+jj1] * interp4_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                       - v[ijk    ] * interp4_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+
+                     + ( std::abs(v[ijk+jj1]) * interp3_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                       - std::abs(v[ijk    ]) * interp3_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+
+                     - ( rhorefh[k+1] * w[ijk+kk1] * interp4_ws(s[ijk-kk1], s[ijk    ], s[ijk+kk1], s[ijk+kk2])
+                       - rhorefh[k  ] * w[ijk    ] * interp2(s[ijk-kk1], s[ijk    ]) ) / rhoref[k] * dzi[k]
+
+                     + ( rhorefh[k+1] * std::abs(w[ijk+kk1]) * interp3_ws(s[ijk-kk1], s[ijk    ], s[ijk+kk1], s[ijk+kk2]) ) / rhoref[k] * dzi[k];
         }
 
     for (k=grid->kstart+2; k<grid->kend-2; ++k)
@@ -505,14 +634,23 @@ void Advec_2i4::advec_s(double* restrict st, double* restrict s, double* restric
             {
                 const int ijk = i + j*jj1 + k*kk1;
                 st[ijk] += 
-                         - ( u[ijk+ii1] * interp4(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
-                           - u[ijk    ] * interp4(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
+                         - ( u[ijk+ii1] * interp4_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                           - u[ijk    ] * interp4_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
 
-                         - ( v[ijk+jj1] * interp4(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
-                           - v[ijk    ] * interp4(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+                         + ( std::abs(u[ijk+ii1]) * interp3_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                           - std::abs(u[ijk    ]) * interp3_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
 
-                         - ( rhorefh[k+1] * w[ijk+kk1] * interp4(s[ijk-kk1], s[ijk    ], s[ijk+kk1], s[ijk+kk2])
-                           - rhorefh[k  ] * w[ijk    ] * interp4(s[ijk-kk2], s[ijk-kk1], s[ijk    ], s[ijk+kk1]) ) / rhoref[k] * dzi[k];
+                         - ( v[ijk+jj1] * interp4_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                           - v[ijk    ] * interp4_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+
+                         + ( std::abs(v[ijk+jj1]) * interp3_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                           - std::abs(v[ijk    ]) * interp3_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+
+                         - ( rhorefh[k+1] * w[ijk+kk1] * interp4_ws(s[ijk-kk1], s[ijk    ], s[ijk+kk1], s[ijk+kk2])
+                           - rhorefh[k  ] * w[ijk    ] * interp4_ws(s[ijk-kk2], s[ijk-kk1], s[ijk    ], s[ijk+kk1]) ) / rhoref[k] * dzi[k]
+
+                         + ( rhorefh[k+1] * std::abs(w[ijk+kk1]) * interp3_ws(s[ijk-kk1], s[ijk    ], s[ijk+kk1], s[ijk+kk2])
+                           - rhorefh[k  ] * std::abs(w[ijk    ]) * interp3_ws(s[ijk-kk2], s[ijk-kk1], s[ijk    ], s[ijk+kk1]) ) / rhoref[k] * dzi[k];
             }
 
     k = kend-2;
@@ -522,14 +660,20 @@ void Advec_2i4::advec_s(double* restrict st, double* restrict s, double* restric
         {
             const int ijk = i + j*jj1 + k*kk1;
             st[ijk] += 
-                     - ( u[ijk+ii1] * interp4(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
-                       - u[ijk    ] * interp4(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
+                     - ( u[ijk+ii1] * interp4_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                       - u[ijk    ] * interp4_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
 
-                     - ( v[ijk+jj1] * interp4(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
-                       - v[ijk    ] * interp4(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+                     + ( std::abs(u[ijk+ii1]) * interp3_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                       - std::abs(u[ijk    ]) * interp3_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
+
+                     - ( v[ijk+jj1] * interp4_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                       - v[ijk    ] * interp4_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+
+                     + ( std::abs(v[ijk+jj1]) * interp3_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                       - std::abs(v[ijk    ]) * interp3_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
 
                      - ( rhorefh[k+1] * w[ijk+kk1] * interp2(s[ijk    ], s[ijk+kk1])
-                       - rhorefh[k  ] * w[ijk    ] * interp4(s[ijk-kk2], s[ijk-kk1], s[ijk    ], s[ijk+kk1]) ) / rhoref[k] * dzi[k];
+                       - rhorefh[k  ] * w[ijk    ] * interp4_ws(s[ijk-kk2], s[ijk-kk1], s[ijk    ], s[ijk+kk1]) ) / rhoref[k] * dzi[k];
         }
 
     // assume that w at the boundary equals zero...
@@ -540,11 +684,17 @@ void Advec_2i4::advec_s(double* restrict st, double* restrict s, double* restric
         {
             const int ijk = i + j*jj1 + k*kk1;
             st[ijk] += 
-                     - ( u[ijk+ii1] * interp4(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
-                       - u[ijk    ] * interp4(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
+                     - ( u[ijk+ii1] * interp4_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                       - u[ijk    ] * interp4_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
 
-                     - ( v[ijk+jj1] * interp4(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
-                       - v[ijk    ] * interp4(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+                     + ( std::abs(u[ijk+ii1]) * interp3_ws(s[ijk-ii1], s[ijk    ], s[ijk+ii1], s[ijk+ii2])
+                       - std::abs(u[ijk    ]) * interp3_ws(s[ijk-ii2], s[ijk-ii1], s[ijk    ], s[ijk+ii1]) ) * dxi
+
+                     - ( v[ijk+jj1] * interp4_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                       - v[ijk    ] * interp4_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
+
+                     + ( std::abs(v[ijk+jj1]) * interp3_ws(s[ijk-jj1], s[ijk    ], s[ijk+jj1], s[ijk+jj2])
+                       - std::abs(v[ijk    ]) * interp3_ws(s[ijk-jj2], s[ijk-jj1], s[ijk    ], s[ijk+jj1]) ) * dyi 
 
                      - (- rhorefh[k  ] * w[ijk    ] * interp2(s[ijk-kk1], s[ijk    ]) ) / rhoref[k] * dzi[k];
         }
