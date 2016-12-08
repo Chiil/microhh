@@ -53,12 +53,31 @@ namespace
                 }
     }
 
+    double calc_precipitable_water(double* const pw, const double* const qt,
+                                   const double* const rhoref, const double* const dz,
+                                   const int istart, const int jstart, const int kstart,
+                                   const int iend, const int jend, const int kend,
+                                   const int jj, const int kk)
+    {
+
+        for (int k=kstart; k<kend; ++k)
+            for (int j=jstart; j<jend; ++j)
+                #pragma ivdep
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + k*kk;
+                    pw[ij] += rhoref[k] * dz[k] * qt[ijk];
+                }
+
+        return 0.;
+    }
+
     void add_flex_radiation(double* const tvart, const double* const radflexprof,
                             const int istart, const int jstart, const int kstart,
                             const int iend, const int jend, const int kend,
                             const int jj, const int kk)
     {
-
         for (int k=kstart; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
                 #pragma ivdep
@@ -125,7 +144,16 @@ void Radiation::exec()
                            grid->iend, grid->jend, grid->kend,
                            grid->icells, grid->ijcells);
 
-        add_flex_radiation(fields->st["thl"]->data, radflexprof.data(),
+        // Calculate the precipitable water.
+        double precipitable_water_mean = calc_precipitable_water(fields->atmp["tmp1"]->databot,
+                                                                 fields->sp["qt"]->data,
+                                                                 fields->rhoref, grid->dz,
+                                                                 grid->istart, grid->jstart, grid->kstart,
+                                                                 grid->iend, grid->jend, grid->kend,
+                                                                 grid->icells, grid->ijcells);
+
+        add_flex_radiation(fields->st["thl"]->data, 
+                           radflexprof.data(),
                            grid->istart, grid->jstart, grid->kstart,
                            grid->iend, grid->jend, grid->kend,
                            grid->icells, grid->ijcells);
