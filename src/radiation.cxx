@@ -112,10 +112,7 @@ namespace
                     const int ij  = i + j*jj;
                     const int ijk = i + j*jj + k*kk;
                     if (pw[ij] < pw_thres)
-                    {
-                        std::printf("CvH: YES, %d, %d, %E, %E\n", i, j, pw[ij], pw_thres);
                         tvart[ijk] += radflexprof[k];
-                    }
                 }
     }
 }
@@ -186,7 +183,7 @@ void Radiation::exec()
                                                                 master);
 
         // Here, we define dry regions where the precipitable water is less than 0.8 of the max
-        const double pw_threshold = 0.8 * precipitable_water_max;
+        const double pw_threshold = 0.85 * precipitable_water_max;
         add_flex_radiation(fields->st["thl"]->data, 
                            fields->atmp["tmp1"]->databot,
                            radflexprof.data(),
