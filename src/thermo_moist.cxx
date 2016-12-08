@@ -1550,6 +1550,10 @@ void Thermo_moist::exec_cross()
             // Note: tmp1 twice used as argument -> overwritten in crosspath()
             nerror += cross->cross_lngrad(fields->atmp["tmp1"]->data, fields->atmp["tmp2"]->data, fields->atmp["tmp1"]->data, grid->dzi4, *it);
         }
+        else if (*it == "qtpath")
+        {
+            nerror += cross->cross_path(fields->sp["qt"]->data, fields->atmp["tmp2"]->data, fields->atmp["tmp1"]->data, "qtpath");
+        }
         else if (*it == "qlpath")
         {
             calc_liquid_water(fields->atmp["tmp1"]->data, fields->sp[thvar]->data, fields->sp["qt"]->data, pref);
@@ -2103,6 +2107,7 @@ void Thermo_moist::init_cross()
         allowedcrossvars.push_back("bfluxbot");
         if (grid->swspatialorder == "4")
             allowedcrossvars.push_back("blngrad");
+        allowedcrossvars.push_back("qtpath");
         allowedcrossvars.push_back("ql");
         allowedcrossvars.push_back("qlpath");
         allowedcrossvars.push_back("qlbase");
