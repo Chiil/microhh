@@ -35,6 +35,7 @@
 #include "thermo.h"
 #include "boundary.h"
 #include "buffer.h"
+#include "radiation.h"
 #include "force.h"
 #include "stats.h"
 #include "cross.h"
@@ -52,14 +53,15 @@ Model::Model(Master *masterin, Input *inputin)
     input  = inputin;
 
     // Initialize the pointers as zero
-    grid     = 0;
-    fields   = 0;
-    diff     = 0;
-    pres     = 0;
-    thermo   = 0;
-    timeloop = 0;
-    force    = 0;
-    buffer   = 0;
+    grid      = 0;
+    fields    = 0;
+    diff      = 0;
+    pres      = 0;
+    thermo    = 0;
+    timeloop  = 0;
+    force     = 0;
+    buffer    = 0;
+    radiation = 0;
 
     stats  = 0;
     cross  = 0;
@@ -75,15 +77,16 @@ Model::Model(Master *masterin, Input *inputin)
         fields = new Fields(this, input);
 
         // Create instances of the other model classes.
-        boundary = Boundary::factory(master, input, this);
-        advec    = Advec   ::factory(master, input, this, grid->swspatialorder);
-        diff     = Diff    ::factory(master, input, this, grid->swspatialorder);
-        pres     = Pres    ::factory(master, input, this, grid->swspatialorder);
-        thermo   = Thermo  ::factory(master, input, this);
+        boundary  = Boundary::factory(master, input, this);
+        advec     = Advec   ::factory(master, input, this, grid->swspatialorder);
+        diff      = Diff    ::factory(master, input, this, grid->swspatialorder);
+        pres      = Pres    ::factory(master, input, this, grid->swspatialorder);
+        thermo    = Thermo  ::factory(master, input, this);
 
-        timeloop = new Timeloop(this, input);
-        force    = new Force   (this, input);
-        buffer   = new Buffer  (this, input);
+        timeloop  = new Timeloop (this, input);
+        force     = new Force    (this, input);
+        buffer    = new Buffer   (this, input);
+        radiation = new Radiation(this, input);
 
         // Create instances of the statistics classes. First create stats as it is required for init of derived stats.
         stats  = new Stats (this, input);
@@ -133,6 +136,8 @@ void Model::delete_objects()
     delete dump;
     delete cross;
     delete stats;
+
+    delete radiation;
     delete buffer;
     delete force;
     delete pres;
@@ -161,11 +166,12 @@ void Model::init()
     grid  ->init();
     fields->init();
 
-    boundary->init(input);
-    buffer  ->init();
-    force   ->init();
-    pres    ->init();
-    thermo  ->init();
+    boundary ->init(input);
+    buffer   ->init();
+    force    ->init();
+    pres     ->init();
+    thermo   ->init();
+    radiation->init();
 
     stats ->init(timeloop->get_ifactor());
     cross ->init(timeloop->get_ifactor());
@@ -191,9 +197,10 @@ void Model::load()
     // Initialize data or load data from disk.
     boundary->create(input);
 
-    buffer->create(input);
-    force ->create(input);
-    thermo->create(input);
+    buffer   ->create(input);
+    radiation->create(input);
+    force    ->create(input);
+    thermo   ->create(input);
 
     budget->create();
 
@@ -271,6 +278,9 @@ void Model::exec()
         thermo->exec();
         // Calculate the tendency due to damping in the buffer layer.
         buffer->exec();
+
+        // Calculate the tendency due to radiation.
+        radiation->exec();
 
         // Apply the large scale forcings. Keep this one always right before the pressure.
         force->exec(timeloop->get_sub_time_step());
