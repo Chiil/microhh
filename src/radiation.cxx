@@ -81,7 +81,7 @@ namespace
                     pw[ij] += rhoref[k] * dz[k] * qt[ijk];
                 }
 
-        // 3. Calculate the mean precipitable water.
+        // 3. Calculate the maximum precipitable water.
         double pw_max = 0.;
 
         for (int j=jstart; j<jend; ++j)
@@ -183,7 +183,7 @@ void Radiation::exec()
                                                                 master);
 
         // Here, we define dry regions where the precipitable water is less than 0.8 of the max
-        const double pw_threshold = 0.85 * precipitable_water_max;
+        const double pw_threshold = 0.8 * precipitable_water_max;
         add_flex_radiation(fields->st["thl"]->data, 
                            fields->atmp["tmp1"]->databot,
                            radflexprof.data(),
