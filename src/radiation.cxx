@@ -142,8 +142,8 @@ void Radiation::init()
 {
     if (swradiation == "1")
     {
-        radmeanprof.resize(grid->kmax);
-        radflexprof.resize(grid->kmax);
+        radmeanprof.resize(grid->kcells);
+        radflexprof.resize(grid->kcells);
     }
 }
 
@@ -154,8 +154,8 @@ void Radiation::create(Input* inputin)
     if (swradiation == "1")
     {
         // Load the flexible radiation profile.
-        nerror += inputin->get_prof(radmeanprof.data(), "radmean", grid->kmax);
-        nerror += inputin->get_prof(radflexprof.data(), "radflex", grid->kmax);
+        nerror += inputin->get_prof(&radmeanprof[grid->kstart], "radmean", grid->kmax);
+        nerror += inputin->get_prof(&radflexprof[grid->kstart], "radflex", grid->kmax);
     }
 
     if (nerror)
