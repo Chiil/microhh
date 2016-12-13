@@ -83,9 +83,9 @@ v = np.interp(z, z_u0, v0)
 
 # write the data to a file
 proffile = open('gabls4_dns.prof','w')
-proffile.write('{0:^20s} {1:^20s} {2:^20s} {3:^20s} {4:^20s} {5:^20s}\n'.format('z','b','u','v','ug','vg'))
+proffile.write('{0:^20s} {1:^20s} {2:^20s} {3:^20s} {4:^20s} {5:^20s}\n'.format('z','th','u','v','ug','vg'))
 for k in range(kmax):
-    proffile.write('{0:1.14E} {1:1.14E} {2:1.14E} {3:1.14E} {4:1.14E} {5:1.14E}\n'.format(z[k], b[k], u[k], v[k], ug[k], vg[k]))
+    proffile.write('{0:1.14E} {1:1.14E} {2:1.14E} {3:1.14E} {4:1.14E} {5:1.14E}\n'.format(z[k], theta[k], u[k], v[k], ug[k], vg[k]))
 proffile.close()
 
 #plot the grid
