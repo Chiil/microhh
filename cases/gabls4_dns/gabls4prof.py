@@ -62,20 +62,29 @@ theta = np.where(z<=270, 277.7, theta)
 theta = np.where(np.logical_and(z>270,z<320), 277.7+0.018*(z-270), theta)
 theta = np.where(z>=320, 278.6+0.0075*(z-320), theta)
 
+z_theta0 = np.array([0, 270, 320, 400])
+theta0 = np.array([277.7, 277.7, 278.6, 279.2])
+theta = np.interp(z, z_theta0, theta0)
+
 ug0 = 1.25
 vg0 = 4.5
 
 ug = ug0*np.ones(kmax)
 vg = vg0*np.ones(kmax)
 
+z_u0 = np.array([0, 270, 320, 400])
+u0 = np.array([2.25, 2.25, 1.25, 1.25])
+u = np.interp(z, z_u0, u0)
 
+v0 = np.array([5., 5, 4.5, 4.5])
+v = np.interp(z, z_u0, v0)
 
 # write the data to a file
-#proffile = open('drycbl.prof','w')
-#proffile.write('{0:^20s} {1:^20s}\n'.format('z','b'))
-#for k in range(kmax):
-#    proffile.write('{0:1.14E} {1:1.14E}\n'.format(z[k], b[k]))
-#proffile.close()
+proffile = open('drycbl.prof','w')
+proffile.write('{0:^20s} {1:^20s}\n'.format('z','b'))
+for k in range(kmax):
+    proffile.write('{0:1.14E} {1:1.14E}\n'.format(z[k], b[k]))
+proffile.close()
 
 #plot the grid
 #pl.figure()
@@ -96,14 +105,16 @@ pl.ylim(0  , 400)
 
 pl.figure()
 pl.subplot(121)
+pl.plot(u, z, 'b-')
 pl.plot(u_ref , z_ref, 'k:')
-pl.plot(ug, z, 'b-')
+pl.plot(ug, z, 'r-')
 pl.plot(ug_ref, z_ref, 'k:')
 pl.xlim(0, 6  )
 pl.ylim(0, 400)
 pl.subplot(122)
-pl.plot(v_ref , z_ref, 'k-')
-pl.plot(vg, z, 'b-')
+pl.plot(v, z, 'b-')
+pl.plot(v_ref , z_ref, 'k:')
+pl.plot(vg, z, 'r-')
 pl.plot(vg_ref, z_ref, 'k:')
 pl.xlim(0, 6  )
 pl.ylim(0, 400)
