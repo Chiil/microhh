@@ -66,6 +66,8 @@ z_theta0 = np.array([0, 270, 320, 400])
 theta0 = np.array([277.7, 277.7, 278.6, 279.2])
 theta = np.interp(z, z_theta0, theta0)
 
+b = 9.81/theta[0] * (theta - theta[0])
+
 ug0 = 1.25
 vg0 = 4.5
 
@@ -80,10 +82,10 @@ v0 = np.array([5., 5, 4.5, 4.5])
 v = np.interp(z, z_u0, v0)
 
 # write the data to a file
-proffile = open('drycbl.prof','w')
-proffile.write('{0:^20s} {1:^20s}\n'.format('z','b'))
+proffile = open('gabls4_dns.prof','w')
+proffile.write('{0:^20s} {1:^20s} {2:^20s} {3:^20s} {4:^20s} {5:^20s}\n'.format('z','b','u','v','ug','vg'))
 for k in range(kmax):
-    proffile.write('{0:1.14E} {1:1.14E}\n'.format(z[k], b[k]))
+    proffile.write('{0:1.14E} {1:1.14E} {2:1.14E} {3:1.14E} {4:1.14E} {5:1.14E}\n'.format(z[k], b[k], u[k], v[k], ug[k], vg[k]))
 proffile.close()
 
 #plot the grid
