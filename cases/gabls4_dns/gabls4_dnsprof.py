@@ -2,6 +2,12 @@ import numpy as np
 import matplotlib.pyplot as pl
 import netCDF4 as nc
 
+def smooth_prof(prof, n):
+    for i in range(n):
+        prof[1:-1] = 0.5*(prof[0:-2] + prof[2::])
+
+    return prof
+
 ncfile = nc.Dataset("gabls4_les.nc","r")
 
 z_ref     = ncfile.variables["height"][:]
@@ -62,11 +68,9 @@ theta = np.where(z<=270, 277.7, theta)
 theta = np.where(np.logical_and(z>270,z<320), 277.7+0.018*(z-270), theta)
 theta = np.where(z>=320, 278.6+0.0075*(z-320), theta)
 
-z_theta0 = np.array([0, 270, 320, 400])
-theta0 = np.array([277.7, 277.7, 278.6, 279.2])
+z_theta0 = np.array([0, 25, 270, 320, 400])
+theta0 = np.array([276.5, 277.7, 277.7, 278.6, 279.2])
 theta = np.interp(z, z_theta0, theta0)
-
-b = 9.81/theta[0] * (theta - theta[0])
 
 ug0 = 1.25
 vg0 = 4.5
@@ -74,12 +78,19 @@ vg0 = 4.5
 ug = ug0*np.ones(kmax)
 vg = vg0*np.ones(kmax)
 
-z_u0 = np.array([0, 270, 320, 400])
-u0 = np.array([2.25, 2.25, 1.25, 1.25])
+z_u0 = np.array([0, 20, 270, 320, 400])
+u0 = np.array([0, 2.25, 2.25, 1.25, 1.25])
 u = np.interp(z, z_u0, u0)
 
-v0 = np.array([5., 5, 4.5, 4.5])
+v0 = np.array([0, 5., 5, 4.5, 4.5])
 v = np.interp(z, z_u0, v0)
+
+nsmooth = 128
+theta = smooth_prof(theta, nsmooth)
+u = smooth_prof(u, nsmooth)
+v = smooth_prof(v, nsmooth)
+
+b = 9.81/theta[0] * (theta - theta[0])
 
 # write the data to a file
 proffile = open('gabls4_dns.prof','w')
