@@ -61,7 +61,7 @@ print('zsize = ', zsize)
 zsize = 400.
 dz = zsize / kmax
 
-z = np.arange(0., 400., dz)
+z = np.arange(dz/2, 400., dz)
 
 theta = np.zeros(kmax)
 theta = np.where(z<=270, 277.7, theta)
