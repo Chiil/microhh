@@ -761,6 +761,9 @@ int Fields::add_vortex_pair(Input* inputin)
     nerror += inputin->get_item(&vortexamp  , "fields", "vortexamp"  , "", 1.e-3);
     nerror += inputin->get_item(&vortexaxis , "fields", "vortexaxis" , "", "y"  );
 
+    double vortexheight;
+    nerror += inputin->get_item(&vortexheight, "fields", "vortexheight" , "", grid->zsize);
+
     // add a double vortex to the initial conditions
     const double pi = std::acos((double)-1.);
 
@@ -775,8 +778,10 @@ int Fields::add_vortex_pair(Input* inputin)
                     for (int i=grid->istart; i<grid->iend; ++i)
                     {
                         const int ijk = i + j*jj + k*kk;
-                        u->data[ijk] +=  vortexamp*std::sin(vortexnpair*2.*pi*(grid->xh[i])/grid->xsize)*std::cos(pi*grid->z [k]/grid->zsize);
-                        w->data[ijk] += -vortexamp*std::cos(vortexnpair*2.*pi*(grid->x [i])/grid->xsize)*std::sin(pi*grid->zh[k]/grid->zsize);
+                        if (grid->z[k] < vortexheight)
+                            u->data[ijk] +=  vortexamp*std::sin(vortexnpair*2.*pi*(grid->xh[i])/grid->xsize)*std::cos(pi*grid->z [k]/vortexheight);
+                        if (grid->zh[k] < vortexheight)
+                            w->data[ijk] += -vortexamp*std::cos(vortexnpair*2.*pi*(grid->x [i])/grid->xsize)*std::sin(pi*grid->zh[k]/vortexheight);
                     }
         else if (vortexaxis == "x")
             for (int k=grid->kstart; k<grid->kend; ++k)
@@ -784,8 +789,10 @@ int Fields::add_vortex_pair(Input* inputin)
                     for (int i=grid->istart; i<grid->iend; ++i)
                     {
                         const int ijk = i + j*jj + k*kk;
-                        v->data[ijk] +=  vortexamp*std::sin(vortexnpair*2.*pi*(grid->yh[j])/grid->ysize)*std::cos(pi*grid->z [k]/grid->zsize);
-                        w->data[ijk] += -vortexamp*std::cos(vortexnpair*2.*pi*(grid->y [j])/grid->ysize)*std::sin(pi*grid->zh[k]/grid->zsize);
+                        if (grid->z[k] < vortexheight)
+                            v->data[ijk] +=  vortexamp*std::sin(vortexnpair*2.*pi*(grid->yh[j])/grid->ysize)*std::cos(pi*grid->z [k]/vortexheight);
+                        if (grid->zh[k] < vortexheight)
+                            w->data[ijk] += -vortexamp*std::cos(vortexnpair*2.*pi*(grid->y [j])/grid->ysize)*std::sin(pi*grid->zh[k]/vortexheight);
                     }
     }
 
