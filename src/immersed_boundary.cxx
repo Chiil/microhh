@@ -162,12 +162,10 @@ namespace
                     {
                         int k = ibc_kstart-1;
                         int ijk = i + j*jj + k*kk;
-                        /*
                         ut[ijk] +=
                                 + ( rhorefh[k+1] * interp2(w[ijk-ii+kk], w[ijk+kk]) * interp2(u[ijk], u[ijk+kk]) ) / rhoref[k] * dzi[k]
                                 - visc * ( (u[ijk+kk] - u[ijk]) * dzhi[k+1]) * dzi[k]
                                 + visc * ( -2.*u[ijk] * dzhi[k+1] ) * dzi[k];
-                        */
 
                         k = ibc_kend;
                         ijk = i + j*jj + k*kk;
@@ -183,12 +181,10 @@ namespace
                     {
                         int k = ibc_kstart-1;
                         int ijk = i + j*jj + k*kk;
-                        /*
                         vt[ijk] +=
                                 + ( rhorefh[k+1] * interp2(w[ijk-jj+kk], w[ijk+kk]) * interp2(v[ijk], v[ijk+kk]) ) / rhoref[k] * dzi[k]
                                 - visc * ( (v[ijk+kk] - v[ijk]) * dzhi[k+1]) * dzi[k]
                                 + visc * ( -2.*v[ijk] * dzhi[k+1] ) * dzi[k];
-                        */
 
                         k = ibc_kend;
                         ijk = i + j*jj + k*kk;
