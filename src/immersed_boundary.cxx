@@ -107,7 +107,7 @@ namespace
                      const double* const restrict u, const double* const restrict v, const double* const restrict w,
                      const double* const restrict rhoref, const double* const restrict rhorefh,
                      const double* const restrict dzi, const double* const restrict dzhi,
-                     const double dxi,
+                     const double dxi, const double dyi,
                      const double visc,
                      const int istart, const int iend,
                      const int jstart, const int jend,
@@ -202,10 +202,10 @@ namespace
     }
 
     void set_scalar(double* const restrict st, double* const restrict s,
-                    const double* const restrict u, const double* const restrict w,
+                    const double* const restrict u, const double* const restrict v, const double* const restrict w,
                     const double* const restrict rhoref, const double* const restrict rhorefh,
                     const double* const restrict dzi, const double* const restrict dzhi,
-                    const double dxi,
+                    const double dxi, const double dyi,
                     const double visc,
                     const int istart, const int iend,
                     const int jstart, const int jend,
@@ -219,6 +219,7 @@ namespace
         const int kk = ijcells;
 
         const double dxidxi = dxi*dxi;
+        const double dyidyi = dyi*dyi;
 
         const int ibc_kstart = kstart;
         const int ibc_kend   = kstart + kblock;
@@ -249,6 +250,21 @@ namespace
                         st[ijk] +=
                                  - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
                                  + visc * ( (s[ijk] - s[ijk-ii]) ) * dxidxi;
+                    }
+
+                // Set no flow through the object at the vertical wall and a neumann BC.
+                for (int k=ibc_kstart; k<ibc_kend; ++k)
+                    for (int i=ibc_istart; i<ibc_iend; ++i)
+                    {
+                        int ijk = i + (ibc_jstart-1)*jj + k*kk;
+                        st[ijk] +=
+                                 + ( v[ijk+jj] * interp2(s[ijk], s[ijk+jj]) ) * dyi
+                                 - visc * ( s[ijk+jj] - s[ijk] ) * dyidyi;
+
+                        ijk = i + ibc_jend*jj + k*kk;
+                        st[ijk] +=
+                                 - ( v[ijk] * interp2(s[ijk-jj], s[ijk]) ) * dyi
+                                 + visc * ( (s[ijk] - s[ijk-jj]) ) * dyidyi;
                     }
 
                 // Set no flow through the object at the horizontal wall
@@ -321,7 +337,7 @@ void Immersed_boundary::exec(Fields& fields)
                 fields.u->data, fields.v->data, fields.w->data,
                 fields.rhoref, fields.rhorefh,
                 grid.dzi, grid.dzhi,
-                grid.dxi,
+                grid.dxi, grid.dyi,
                 fields.visc,
                 grid.istart, grid.iend,
                 grid.jstart, grid.jend,
@@ -330,10 +346,10 @@ void Immersed_boundary::exec(Fields& fields)
 
     for (FieldMap::const_iterator it = fields.st.begin(); it!=fields.st.end(); it++)
         set_scalar(it->second->data, fields.sp[it->first]->data,
-                   fields.u->data, fields.w->data,
+                   fields.u->data, fields.v->data, fields.w->data,
                    fields.rhoref, fields.rhorefh,
                    grid.dzi, grid.dzhi,
-                   grid.dxi,
+                   grid.dxi, grid.dyi,
                    fields.sp[it->first]->visc,
                    grid.istart, grid.iend,
                    grid.jstart, grid.jend,

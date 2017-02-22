@@ -14,6 +14,7 @@ dz = zsize / kmax
 z = np.linspace(0.5*dz, zsize-0.5*dz, kmax)
 u = 0.1*np.ones(np.size(z))
 s = z.copy() / zsize
+s = np.zeros(z.size)
 
 # Write the data to a file.
 proffile = open('ib.prof','w')
