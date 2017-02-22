@@ -35,10 +35,14 @@
 // Boundary schemes.
 #include "boundary.h"
 #include "boundary_surface.h"
-#include "boundary_user.h"
+#include "boundary_surface_bulk.h"
+#include "boundary_surface_patch.h"
+#include "boundary_patch.h"
 
 Boundary::Boundary(Model* modelin, Input* inputin)
 {
+    swboundary = "default";
+
     model  = modelin;
     grid   = model->grid;
     fields = model->fields;
@@ -56,6 +60,11 @@ Boundary::~Boundary()
     // clean up time dependent data
     for (std::map<std::string, double *>::const_iterator it=timedepdata.begin(); it!=timedepdata.end(); ++it)
         delete[] it->second;
+}
+
+std::string Boundary::get_switch()
+{
+    return swboundary;
 }
 
 void Boundary::process_bcs(Input* inputin)
@@ -456,8 +465,12 @@ Boundary* Boundary::factory(Master* masterin, Input* inputin, Model* modelin)
 
     if (swboundary == "surface")
         return new Boundary_surface(modelin, inputin);
-    else if (swboundary == "user")
-        return new Boundary_user(modelin, inputin);
+    if (swboundary == "surface_bulk")
+        return new Boundary_surface_bulk(modelin, inputin);
+    else if (swboundary == "surface_patch")
+        return new Boundary_surface_patch(modelin, inputin);
+    else if (swboundary == "patch")
+        return new Boundary_patch(modelin, inputin);
     else if (swboundary == "default")
         return new Boundary(modelin, inputin);
     else
@@ -722,6 +735,27 @@ void Boundary::calc_ghost_cells_topw_4th(double* restrict w)
             const int ijk = i + j*jj + kend*kk1;
             w[ijk+kk1] = -6.*w[ijk-kk1] + 4.*w[ijk-kk2] - w[ijk-kk3];
         }
+}
+
+void Boundary::get_mask(Field3d* field, Field3d* fieldh, Mask* m)
+{
+    // Set surface mask
+    for (int i=0; i<grid->ijcells; ++i)
+        fieldh->databot[i] = 1;
+
+    // Set atmospheric mask
+    for (int i=0; i<grid->ncells; ++i)
+    {
+        field ->data[i] = 1;
+        fieldh->data[i] = 1;
+    }
+}
+
+void Boundary::get_surface_mask(Field3d* field)
+{
+    // Set surface mask
+    for (int i=0; i<grid->ijcells; ++i)
+        field->databot[i] = 1;
 }
 
 void Boundary::prepare_device()

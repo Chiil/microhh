@@ -31,87 +31,39 @@ class Stats;
 class Grid;
 class Fields;
 class Thermo;
+class Diff;
+class Advec;
+class Force;
 struct Mask;
 
+/**
+ * Base class for the budget statistics. This class is abstract and only
+ * derived classes can be instantiated. Derived classes are
+ * implemented that handle different budget statistics.
+ */
 class Budget
 {
     public:
-        Budget(Input*, Master*, Grid*, Fields*, Thermo*, Stats*);
-        ~Budget();
+        Budget(Input*, Master*, Grid*, Fields*, Thermo*, Diff*, Advec*, Force*, Stats*);
+        virtual ~Budget();
 
-        void init();
-        void create();
+        static Budget* factory(Input*, Master*, Grid*, Fields*, Thermo*, Diff*, Advec*, Force*, Stats*); ///< Factory function for budget class generation.
 
-        void exec_stats(Mask*);
+        virtual void init() = 0;
+        virtual void create() = 0;
+        virtual void exec_stats(Mask*) = 0;
 
-    private:
+    protected:
         Master& master;
         Grid&   grid;
         Fields& fields;
         Thermo& thermo;
+        Diff&   diff;
+        Advec&  advec;
+        Force&  force;
         Stats&  stats;
 
         std::string swbudget;
-
-        double* umodel;
-        double* vmodel;
-
-        void calc_ke(double*, double*, double*,
-                     double*, double*,
-                     double, double,
-                     double*, double*);
-
-        void calc_tke_budget_shear_turb(double*, double*, double*,
-                                        double*, double*,
-                                        double*, double*,
-                                        double*, double*, double*, double*,
-                                        double*, double*, double*, double*, double*,
-                                        double*, double*);
-
-        void calc_tke_budget(double*, double*, double*, double*,
-                             double*, double*,
-                             double*, double*,
-                             double*, double*, double*, double*, double*,
-                             double*, double*, double*, double*, double*,
-                             double*, double*, double*,
-                             double*, double*, double*, double*,
-                             double*, double*, double);
-
-        void calc_tke_budget_buoy(double*, double*, double*,
-                                  double*, double*,
-                                  double*, double*, double*);
-
-        void calc_b2_budget(double*, double*,
-                            double*,
-                            double*, double*, double*, double*,
-                            double*, double*,
-                            double);
-
-        void calc_bw_budget(double*, double*, double*, double*,
-                            double*, double*,
-                            double*, double*, double*,
-                            double*, double*, double*, double*,
-                            double*, double*,
-                            double);
-
-        void calc_pe(double*, double*, double*, double*,
-                     double*,
-                     double*,
-                     double*, double*, double*,
-                     double*);
-
-        void calc_pe_budget(double*, double*, double*, double*,
-                            double*, double*, double*,
-                            double*, double*, double*, double*,
-                            double);
-
-        void calc_bpe_budget(double*, double*, double*, double*, double*,
-                             double*, double*, double*,
-                             double*,
-                             double*, double*, double*,
-                             double);
-
-        double calc_zsort   (double, double*, double*, int);
-        double calc_dzstardb(double, double*, double*);
 };
 #endif
+
