@@ -102,8 +102,8 @@ namespace
         }
     }
 
-    void set_no_slip(double* const restrict ut, double* const restrict wt,
-                     const double* const restrict u, const double* const restrict w,
+    void set_no_slip(double* const restrict ut, double* const restrict vt, double* const restrict wt,
+                     const double* const restrict u, const double* const restrict v, const double* const restrict w,
                      const double* const restrict rhoref, const double* const restrict rhorefh,
                      const double* const restrict dzi, const double* const restrict dzhi,
                      const double dxi,
@@ -161,10 +161,12 @@ namespace
                     {
                         int k = ibc_kstart-1;
                         int ijk = i + j*jj + k*kk;
+                        /*
                         ut[ijk] +=
                                 + ( rhorefh[k+1] * interp2(w[ijk-ii+kk], w[ijk+kk]) * interp2(u[ijk], u[ijk+kk]) ) / rhoref[k] * dzi[k]
                                 - visc * ( (u[ijk+kk] - u[ijk]) * dzhi[k+1]) * dzi[k]
                                 + visc * ( -2.*u[ijk] * dzhi[k+1] ) * dzi[k];
+                        */
 
                         k = ibc_kend;
                         ijk = i + j*jj + k*kk;
@@ -172,6 +174,27 @@ namespace
                                 - ( rhorefh[k] * interp2(w[ijk-ii], w[ijk]) * interp2(u[ijk-kk], u[ijk]) ) / rhoref[k] * dzi[k]
                                 + visc * ( (u[ijk] - u[ijk-kk]) * dzhi[k] ) * dzi[k]
                                 - visc * ( 2.*u[ijk] * dzhi[k] ) * dzi[k];
+                    }
+
+                // Set the v no slip at the horizontal walls
+                for (int j=ibc_jstart; j<ibc_jend+1; ++j)
+                    for (int i=ibc_istart; i<ibc_iend; ++i)
+                    {
+                        int k = ibc_kstart-1;
+                        int ijk = i + j*jj + k*kk;
+                        /*
+                        vt[ijk] +=
+                                + ( rhorefh[k+1] * interp2(w[ijk-jj+kk], w[ijk+kk]) * interp2(v[ijk], v[ijk+kk]) ) / rhoref[k] * dzi[k]
+                                - visc * ( (v[ijk+kk] - v[ijk]) * dzhi[k+1]) * dzi[k]
+                                + visc * ( -2.*v[ijk] * dzhi[k+1] ) * dzi[k];
+                        */
+
+                        k = ibc_kend;
+                        ijk = i + j*jj + k*kk;
+                        vt[ijk] +=
+                                - ( rhorefh[k] * interp2(w[ijk-ii], w[ijk]) * interp2(v[ijk-kk], v[ijk]) ) / rhoref[k] * dzi[k]
+                                + visc * ( (v[ijk] - v[ijk-kk]) * dzhi[k] ) * dzi[k]
+                                - visc * ( 2.*v[ijk] * dzhi[k] ) * dzi[k];
                     }
             }
         }
