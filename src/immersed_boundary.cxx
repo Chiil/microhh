@@ -28,18 +28,13 @@
 #include "finite_difference.h"
 #include "immersed_boundary.h"
 
-Immersed_boundary::Immersed_boundary(Master& masterin, Grid& gridin) : 
-    master(masterin),
-    grid(gridin)
-{
-}
-
-Immersed_boundary::~Immersed_boundary()
-{
-}
-
 namespace
 {
+    int nblocks;
+    int iblock;
+    int jblock;
+    int kblock;
+
     void set_no_penetration(double* const restrict ut, double* const restrict wt,
                             double* const restrict u, double* const restrict w,
                             const int istart, const int iend,
@@ -206,6 +201,25 @@ namespace
             }
     }
 
+}
+
+Immersed_boundary::Immersed_boundary(Master& masterin, Grid& gridin, Input& input) :
+    master(masterin),
+    grid(gridin)
+{
+    int nerror = 0;
+
+    nerror += input.get_item(&nblocks, "ib", "nblocks", "");
+    nerror += input.get_item(&iblock , "ib", "iblock" , "");
+    nerror += input.get_item(&jblock , "ib", "jblock" , "");
+    nerror += input.get_item(&kblock , "ib", "kblock" , "");
+
+    if (nerror > 0)
+        throw 1;
+}
+
+Immersed_boundary::~Immersed_boundary()
+{
 }
 
 void Immersed_boundary::exec(Fields& fields)

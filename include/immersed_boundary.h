@@ -26,12 +26,13 @@
 class Grid;
 class Fields;
 class Master;
+class Input;
 
 class Immersed_boundary
 {
     public:
-        Immersed_boundary(Master&, Grid&); ///< Constructor of the class.
-        ~Immersed_boundary();              ///< Destructor of the class.
+        Immersed_boundary(Master&, Grid&, Input&); ///< Constructor of the class.
+        ~Immersed_boundary(); ///< Destructor of the class.
 
         void exec(Fields&);
 

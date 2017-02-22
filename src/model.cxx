@@ -86,7 +86,7 @@ Model::Model(Master *masterin, Input *inputin)
         force    = new Force   (this, input);
         buffer   = new Buffer  (this, input);
 
-        immersed_boundary = new Immersed_boundary(*master, *grid);
+        immersed_boundary = new Immersed_boundary(*master, *grid, *input);
 
         // Create instances of the statistics classes.
         stats  = new Stats (this, input);
