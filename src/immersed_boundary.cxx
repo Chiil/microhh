@@ -54,7 +54,7 @@ namespace
         for (int n=0; n<nblocks; ++n)
         {
             const int ibc_istart = istart + n*istep + istep/2 - iblock/2;
-            const int ibc_iend   = istart + n*istep + istep/2 + iblock/2;
+            const int ibc_iend   = ibc_istart + iblock;
 
             // Set the u ghost cells, no flow in the block.
             for (int k=ibc_kstart; k<ibc_kend; ++k)
@@ -109,7 +109,7 @@ namespace
         for (int n=0; n<nblocks; ++n)
         {
             const int ibc_istart = istart + n*istep + istep/2 - iblock/2;
-            const int ibc_iend   = istart + n*istep + istep/2 + iblock/2;
+            const int ibc_iend   = ibc_istart + iblock;
 
             // Set the w no slip at the vertical walls, by reverting the advection 
             // and diffusion towards the wall and adding the proper diffusion
@@ -176,6 +176,9 @@ namespace
 
         for (int n=0; n<nblocks; ++n)
         {
+            const int ibc_istart = istart + n*istep + istep/2 - iblock/2;
+            const int ibc_iend   = ibc_istart + iblock;
+
             // Set no flow through the object at the vertical wall and a neumann BC.
             for (int k=ibc_kstart; k<ibc_kend; ++k)
                 for (int j=jstart; j<jend; ++j)
