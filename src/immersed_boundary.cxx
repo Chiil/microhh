@@ -121,6 +121,7 @@ namespace
         const int kk = ijcells;
 
         const double dxidxi = dxi*dxi;
+        const double dyidyi = dyi*dyi;
 
         const int ibc_kstart = kstart;
         const int ibc_kend   = kstart + kblock;
@@ -154,6 +155,22 @@ namespace
                                 - ( interp2(u[ijk-kk], u[ijk]) * interp2(w[ijk-ii], w[ijk]) ) * dxi
                                 + visc * ( (w[ijk] - w[ijk-ii]) ) * dxidxi
                                 - visc * ( 2.*w[ijk] ) * dxidxi;
+                    }
+
+                for (int k=ibc_kstart; k<ibc_kend+1; ++k)
+                    for (int i=ibc_istart; i<ibc_iend; ++i)
+                    {
+                        int ijk = i + (ibc_jstart-1)*jj + k*kk;
+                        wt[ijk] +=
+                                + ( interp2(v[ijk+jj-kk], v[ijk+jj]) * interp2(w[ijk], w[ijk+jj]) ) * dyi
+                                - visc * ( (w[ijk+jj] - w[ijk]) ) * dyidyi
+                                + visc * ( -2.*w[ijk] ) * dyidyi;
+
+                        ijk = i + ibc_jend*jj + k*kk;
+                        wt[ijk] +=
+                                - ( interp2(v[ijk-kk], v[ijk]) * interp2(w[ijk-jj], w[ijk]) ) * dyi
+                                + visc * ( (w[ijk] - w[ijk-jj]) ) * dyidyi
+                                - visc * ( 2.*w[ijk] ) * dyidyi;
                     }
 
                 // Set the u no slip at the horizontal walls
