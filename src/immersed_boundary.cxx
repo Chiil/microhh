@@ -30,6 +30,7 @@
 
 namespace
 {
+    std::string swib;
     int mblocks;
     int nblocks;
     int iblock;
@@ -222,44 +223,48 @@ namespace
         const int ibc_kstart = kstart;
         const int ibc_kend   = kstart + kblock;
 
-        const int istep = (iend-istart)/nblocks;
+        const int istep = (iend-istart)/mblocks;
+        const int jstep = (jend-jstart)/nblocks;
 
         for (int n=0; n<nblocks; ++n)
         {
             for (int m=0; m<mblocks; ++m)
             {
-                const int ibc_istart = istart + n*istep + istep/2 - iblock/2;
+                const int ibc_istart = istart + m*istep + istep/2 - iblock/2;
                 const int ibc_iend   = ibc_istart + iblock;
+
+                const int ibc_jstart = jstart + n*jstep + jstep/2 - jblock/2;
+                const int ibc_jend   = ibc_jstart + jblock;
 
                 // Set no flow through the object at the vertical wall and a neumann BC.
                 for (int k=ibc_kstart; k<ibc_kend; ++k)
-                    for (int j=jstart; j<jend; ++j)
+                    for (int j=ibc_jstart; j<ibc_jend; ++j)
                     {
                         int ijk = ibc_istart-1 + j*jj + k*kk;
                         st[ijk] +=
-                                 // + ( u[ijk+ii] * interp2(s[ijk], s[ijk+ii]) ) * dxi
+                                 + ( u[ijk+ii] * interp2(s[ijk], s[ijk+ii]) ) * dxi
                                  - visc * ( s[ijk+ii] - s[ijk] ) * dxidxi;
 
                         ijk = ibc_iend + j*jj + k*kk;
                         st[ijk] +=
-                                 // - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
+                                 - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
                                  + visc * ( (s[ijk] - s[ijk-ii]) ) * dxidxi;
                     }
 
                 // Set no flow through the object at the horizontal wall
-                for (int j=jstart; j<jend; ++j)
+                for (int j=ibc_jstart; j<ibc_jend; ++j)
                     for (int i=ibc_istart; i<ibc_iend; ++i)
                     {
                         int k = ibc_kstart-1;
                         int ijk = i + j*jj + k*kk;
                         st[ijk] +=
-                                 // + ( rhorefh[k+1] * w[ijk+kk] * interp2(s[ijk], s[ijk+kk]) ) / rhoref[k] * dzi[k]
+                                 + ( rhorefh[k+1] * w[ijk+kk] * interp2(s[ijk], s[ijk+kk]) ) / rhoref[k] * dzi[k]
                                  - visc * (s[ijk+kk] - s[ijk]) * dzhi[k+1] * dzi[k];
 
                         k = ibc_kend;
                         ijk = i + j*jj + k*kk;
                         st[ijk] +=
-                                 // - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k];
+                                 - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k]
                                  + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k];
                     }
             }
@@ -273,12 +278,24 @@ Immersed_boundary::Immersed_boundary(Master& masterin, Grid& gridin, Input& inpu
     grid(gridin)
 {
     int nerror = 0;
+    nerror += input.get_item(&swib, "ib", "swib", "");
 
-    nerror += input.get_item(&mblocks, "ib", "mblocks", "");
-    nerror += input.get_item(&nblocks, "ib", "nblocks", "");
-    nerror += input.get_item(&iblock , "ib", "iblock" , "");
-    nerror += input.get_item(&jblock , "ib", "jblock" , "");
-    nerror += input.get_item(&kblock , "ib", "kblock" , "");
+    if (swib != "1")
+    {
+        input.flag_as_used("ib", "mblocks");
+        input.flag_as_used("ib", "nblocks");
+        input.flag_as_used("ib", "iblock");
+        input.flag_as_used("ib", "jblock");
+        input.flag_as_used("ib", "kblock");
+    }
+    else
+    {
+        nerror += input.get_item(&mblocks, "ib", "mblocks", "");
+        nerror += input.get_item(&nblocks, "ib", "nblocks", "");
+        nerror += input.get_item(&iblock , "ib", "iblock" , "");
+        nerror += input.get_item(&jblock , "ib", "jblock" , "");
+        nerror += input.get_item(&kblock , "ib", "kblock" , "");
+    }
 
     if (nerror > 0)
         throw 1;
@@ -290,6 +307,9 @@ Immersed_boundary::~Immersed_boundary()
 
 void Immersed_boundary::exec(Fields& fields)
 {
+    if (swib != "1")
+        return;
+
     set_no_penetration(fields.ut->data, fields.vt->data, fields.wt->data,
                        fields.u->data, fields.v->data, fields.w->data,
                        grid.istart, grid.iend,
@@ -297,9 +317,8 @@ void Immersed_boundary::exec(Fields& fields)
                        grid.kstart, grid.kend,
                        grid.icells, grid.ijcells);
 
-    /*
-    set_no_slip(fields.ut->data, fields.wt->data,
-                fields.u->data, fields.w->data,
+    set_no_slip(fields.ut->data, fields.vt->data, fields.wt->data,
+                fields.u->data, fields.v->data, fields.w->data,
                 fields.rhoref, fields.rhorefh,
                 grid.dzi, grid.dzhi,
                 grid.dxi,
@@ -320,5 +339,4 @@ void Immersed_boundary::exec(Fields& fields)
                    grid.jstart, grid.jend,
                    grid.kstart, grid.kend,
                    grid.icells, grid.ijcells);
-                   */
 }
