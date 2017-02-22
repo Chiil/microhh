@@ -30,13 +30,14 @@
 
 namespace
 {
+    int mblocks;
     int nblocks;
     int iblock;
     int jblock;
     int kblock;
 
-    void set_no_penetration(double* const restrict ut, double* const restrict wt,
-                            double* const restrict u, double* const restrict w,
+    void set_no_penetration(double* const restrict ut, double* const restrict vt, double* const restrict wt,
+                            double* const restrict u, double* const restrict v, double* const restrict w,
                             const int istart, const int iend,
                             const int jstart, const int jend,
                             const int kstart, const int kend,
@@ -49,36 +50,55 @@ namespace
         const int ibc_kstart = kstart;
         const int ibc_kend   = kstart + kblock;
 
-        const int istep = (iend-istart)/nblocks;
+        const int istep = (iend-istart)/mblocks;
+        const int jstep = (jend-jstart)/nblocks;
 
         for (int n=0; n<nblocks; ++n)
         {
-            const int ibc_istart = istart + n*istep + istep/2 - iblock/2;
-            const int ibc_iend   = ibc_istart + iblock;
+            for (int m=0; m<mblocks; ++m)
+            {
+                const int ibc_istart = istart + m*istep + istep/2 - iblock/2;
+                const int ibc_iend   = ibc_istart + iblock;
 
-            // Set the u ghost cells, no flow in the block.
-            for (int k=ibc_kstart; k<ibc_kend; ++k)
-                for (int j=jstart; j<jend; ++j)
-                {
-                    const int ijk_istart  = ibc_istart + j*jj + k*kk;
-                    const int ijk_iend    = ibc_iend   + j*jj + k*kk;
-                    u [ijk_istart] = 0.;
-                    u [ijk_iend  ] = 0.;
-                    ut[ijk_istart] = 0.;
-                    ut[ijk_iend  ] = 0.;
-                }
+                const int ibc_jstart = jstart + n*jstep + jstep/2 - jblock/2;
+                const int ibc_jend   = ibc_jstart + jblock;
 
-            // Set the w ghost cells, no flow in the block.
-            for (int j=jstart; j<jend; ++j)
-                for (int i=ibc_istart; i<ibc_iend; ++i)
-                {
-                    const int ijk_kstart = i + j*jj + ibc_kstart*kk;
-                    const int ijk_kend   = i + j*jj + ibc_kend  *kk;
-                    w [ijk_kstart] = 0.;
-                    w [ijk_kend  ] = 0.;
-                    wt[ijk_kstart] = 0.;
-                    wt[ijk_kend  ] = 0.;
-                }
+                // Set the u ghost cells, no flow in the block.
+                for (int k=ibc_kstart; k<ibc_kend; ++k)
+                    for (int j=ibc_jstart; j<ibc_jend; ++j)
+                    {
+                        const int ijk_istart  = ibc_istart + j*jj + k*kk;
+                        const int ijk_iend    = ibc_iend   + j*jj + k*kk;
+                        u [ijk_istart] = 0.;
+                        u [ijk_iend  ] = 0.;
+                        ut[ijk_istart] = 0.;
+                        ut[ijk_iend  ] = 0.;
+                    }
+
+                // Set the u ghost cells, no flow in the block.
+                for (int k=ibc_kstart; k<ibc_kend; ++k)
+                    for (int i=ibc_istart; i<ibc_iend; ++i)
+                    {
+                        const int ijk_jstart  = i + ibc_jstart*jj + k*kk;
+                        const int ijk_jend    = i + ibc_jend  *jj + k*kk;
+                        v [ijk_jstart] = 0.;
+                        v [ijk_jend  ] = 0.;
+                        vt[ijk_jstart] = 0.;
+                        vt[ijk_jend  ] = 0.;
+                    }
+
+                // Set the w ghost cells, no flow in the block.
+                for (int j=ibc_jstart; j<ibc_jend; ++j)
+                    for (int i=ibc_istart; i<ibc_iend; ++i)
+                    {
+                        const int ijk_kstart = i + j*jj + ibc_kstart*kk;
+                        const int ijk_kend   = i + j*jj + ibc_kend  *kk;
+                        w [ijk_kstart] = 0.;
+                        w [ijk_kend  ] = 0.;
+                        wt[ijk_kstart] = 0.;
+                        wt[ijk_kend  ] = 0.;
+                    }
+            }
         }
     }
 
@@ -105,48 +125,55 @@ namespace
         const int ibc_kend   = kstart + kblock;
 
         const int istep = (iend-istart)/nblocks;
+        const int jstep = (jend-jstart)/nblocks;
 
         for (int n=0; n<nblocks; ++n)
         {
-            const int ibc_istart = istart + n*istep + istep/2 - iblock/2;
-            const int ibc_iend   = ibc_istart + iblock;
+            for (int m=0; m<mblocks; ++m)
+            {
+                const int ibc_istart = istart + m*istep + istep/2 - iblock/2;
+                const int ibc_iend   = ibc_istart + iblock;
 
-            // Set the w no slip at the vertical walls, by reverting the advection 
-            // and diffusion towards the wall and adding the proper diffusion
-            for (int k=ibc_kstart; k<ibc_kend+1; ++k)
-                for (int j=jstart; j<jend; ++j)
-                {
-                    int ijk = ibc_istart-1 + j*jj + k*kk;
-                    wt[ijk] +=
-                            + ( interp2(u[ijk+ii-kk], u[ijk+ii]) * interp2(w[ijk], w[ijk+ii]) ) * dxi
-                            - visc * ( (w[ijk+ii] - w[ijk]) ) * dxidxi
-                            + visc * ( -2.*w[ijk] ) * dxidxi;
+                const int ibc_jstart = jstart + n*jstep + jstep/2 - jblock/2;
+                const int ibc_jend   = ibc_jstart + jblock;
 
-                    ijk = ibc_iend + j*jj + k*kk;
-                    wt[ijk] +=
-                            - ( interp2(u[ijk-kk], u[ijk]) * interp2(w[ijk-ii], w[ijk]) ) * dxi
-                            + visc * ( (w[ijk] - w[ijk-ii]) ) * dxidxi
-                            - visc * ( 2.*w[ijk] ) * dxidxi;
-                }
+                // Set the w no slip at the vertical walls, by reverting the advection 
+                // and diffusion towards the wall and adding the proper diffusion
+                for (int k=ibc_kstart; k<ibc_kend+1; ++k)
+                    for (int j=ibc_jstart; j<ibc_jend; ++j)
+                    {
+                        int ijk = ibc_istart-1 + j*jj + k*kk;
+                        wt[ijk] +=
+                                + ( interp2(u[ijk+ii-kk], u[ijk+ii]) * interp2(w[ijk], w[ijk+ii]) ) * dxi
+                                - visc * ( (w[ijk+ii] - w[ijk]) ) * dxidxi
+                                + visc * ( -2.*w[ijk] ) * dxidxi;
 
-            // Set the u no slip at the horizontal walls
-            for (int j=jstart; j<jend; ++j)
-                for (int i=ibc_istart; i<ibc_iend+1; ++i)
-                {
-                    int k = ibc_kstart-1;
-                    int ijk = i + j*jj + k*kk;
-                    ut[ijk] +=
-                            + ( rhorefh[k+1] * interp2(w[ijk-ii+kk], w[ijk+kk]) * interp2(u[ijk], u[ijk+kk]) ) / rhoref[k] * dzi[k]
-                            - visc * ( (u[ijk+kk] - u[ijk]) * dzhi[k+1]) * dzi[k]
-                            + visc * ( -2.*u[ijk] * dzhi[k+1] ) * dzi[k];
+                        ijk = ibc_iend + j*jj + k*kk;
+                        wt[ijk] +=
+                                - ( interp2(u[ijk-kk], u[ijk]) * interp2(w[ijk-ii], w[ijk]) ) * dxi
+                                + visc * ( (w[ijk] - w[ijk-ii]) ) * dxidxi
+                                - visc * ( 2.*w[ijk] ) * dxidxi;
+                    }
 
-                    k = ibc_kend;
-                    ijk = i + j*jj + k*kk;
-                    ut[ijk] +=
-                            - ( rhorefh[k] * interp2(w[ijk-ii], w[ijk]) * interp2(u[ijk-kk], u[ijk]) ) / rhoref[k] * dzi[k]
-                            + visc * ( (u[ijk] - u[ijk-kk]) * dzhi[k] ) * dzi[k]
-                            - visc * ( 2.*u[ijk] * dzhi[k] ) * dzi[k];
-                }
+                // Set the u no slip at the horizontal walls
+                for (int j=ibc_jstart; j<ibc_jend; ++j)
+                    for (int i=ibc_istart; i<ibc_iend+1; ++i)
+                    {
+                        int k = ibc_kstart-1;
+                        int ijk = i + j*jj + k*kk;
+                        ut[ijk] +=
+                                + ( rhorefh[k+1] * interp2(w[ijk-ii+kk], w[ijk+kk]) * interp2(u[ijk], u[ijk+kk]) ) / rhoref[k] * dzi[k]
+                                - visc * ( (u[ijk+kk] - u[ijk]) * dzhi[k+1]) * dzi[k]
+                                + visc * ( -2.*u[ijk] * dzhi[k+1] ) * dzi[k];
+
+                        k = ibc_kend;
+                        ijk = i + j*jj + k*kk;
+                        ut[ijk] +=
+                                - ( rhorefh[k] * interp2(w[ijk-ii], w[ijk]) * interp2(u[ijk-kk], u[ijk]) ) / rhoref[k] * dzi[k]
+                                + visc * ( (u[ijk] - u[ijk-kk]) * dzhi[k] ) * dzi[k]
+                                - visc * ( 2.*u[ijk] * dzhi[k] ) * dzi[k];
+                    }
+            }
         }
     }
 
@@ -176,40 +203,43 @@ namespace
 
         for (int n=0; n<nblocks; ++n)
         {
-            const int ibc_istart = istart + n*istep + istep/2 - iblock/2;
-            const int ibc_iend   = ibc_istart + iblock;
+            for (int m=0; m<mblocks; ++m)
+            {
+                const int ibc_istart = istart + n*istep + istep/2 - iblock/2;
+                const int ibc_iend   = ibc_istart + iblock;
 
-            // Set no flow through the object at the vertical wall and a neumann BC.
-            for (int k=ibc_kstart; k<ibc_kend; ++k)
+                // Set no flow through the object at the vertical wall and a neumann BC.
+                for (int k=ibc_kstart; k<ibc_kend; ++k)
+                    for (int j=jstart; j<jend; ++j)
+                    {
+                        int ijk = ibc_istart-1 + j*jj + k*kk;
+                        st[ijk] +=
+                                 // + ( u[ijk+ii] * interp2(s[ijk], s[ijk+ii]) ) * dxi
+                                 - visc * ( s[ijk+ii] - s[ijk] ) * dxidxi;
+
+                        ijk = ibc_iend + j*jj + k*kk;
+                        st[ijk] +=
+                                 // - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
+                                 + visc * ( (s[ijk] - s[ijk-ii]) ) * dxidxi;
+                    }
+
+                // Set no flow through the object at the horizontal wall
                 for (int j=jstart; j<jend; ++j)
-                {
-                    int ijk = ibc_istart-1 + j*jj + k*kk;
-                    st[ijk] +=
-                             // + ( u[ijk+ii] * interp2(s[ijk], s[ijk+ii]) ) * dxi
-                             - visc * ( s[ijk+ii] - s[ijk] ) * dxidxi;
+                    for (int i=ibc_istart; i<ibc_iend; ++i)
+                    {
+                        int k = ibc_kstart-1;
+                        int ijk = i + j*jj + k*kk;
+                        st[ijk] +=
+                                 // + ( rhorefh[k+1] * w[ijk+kk] * interp2(s[ijk], s[ijk+kk]) ) / rhoref[k] * dzi[k]
+                                 - visc * (s[ijk+kk] - s[ijk]) * dzhi[k+1] * dzi[k];
 
-                    ijk = ibc_iend + j*jj + k*kk;
-                    st[ijk] +=
-                             // - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
-                             + visc * ( (s[ijk] - s[ijk-ii]) ) * dxidxi;
-                }
-
-            // Set no flow through the object at the horizontal wall
-            for (int j=jstart; j<jend; ++j)
-                for (int i=ibc_istart; i<ibc_iend; ++i)
-                {
-                    int k = ibc_kstart-1;
-                    int ijk = i + j*jj + k*kk;
-                    st[ijk] +=
-                             // + ( rhorefh[k+1] * w[ijk+kk] * interp2(s[ijk], s[ijk+kk]) ) / rhoref[k] * dzi[k]
-                             - visc * (s[ijk+kk] - s[ijk]) * dzhi[k+1] * dzi[k];
-
-                    k = ibc_kend;
-                    ijk = i + j*jj + k*kk;
-                    st[ijk] +=
-                             // - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k];
-                             + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k];
-                }
+                        k = ibc_kend;
+                        ijk = i + j*jj + k*kk;
+                        st[ijk] +=
+                                 // - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k];
+                                 + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k];
+                    }
+            }
         }
     }
 
@@ -221,6 +251,7 @@ Immersed_boundary::Immersed_boundary(Master& masterin, Grid& gridin, Input& inpu
 {
     int nerror = 0;
 
+    nerror += input.get_item(&mblocks, "ib", "mblocks", "");
     nerror += input.get_item(&nblocks, "ib", "nblocks", "");
     nerror += input.get_item(&iblock , "ib", "iblock" , "");
     nerror += input.get_item(&jblock , "ib", "jblock" , "");
@@ -236,8 +267,8 @@ Immersed_boundary::~Immersed_boundary()
 
 void Immersed_boundary::exec(Fields& fields)
 {
-    set_no_penetration(fields.ut->data, fields.wt->data,
-                       fields.u->data, fields.w->data,
+    set_no_penetration(fields.ut->data, fields.vt->data, fields.wt->data,
+                       fields.u->data, fields.v->data, fields.w->data,
                        grid.istart, grid.iend,
                        grid.jstart, grid.jend,
                        grid.kstart, grid.kend,

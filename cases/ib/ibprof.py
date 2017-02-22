@@ -17,7 +17,7 @@ s = z.copy() / zsize
 
 # Write the data to a file.
 proffile = open('ib.prof','w')
-proffile.write('{0:^20s} {1:^20s} {2:^20s}\n'.format('z','u','s'))
+proffile.write('{0:^20s} {1:^20s} {2:^20s} {3:^20s}\n'.format('z','u','v','s'))
 for k in range(kmax):
-    proffile.write('{0:1.14E} {1:1.14E} {2:1.14E}\n'.format(z[k], u[k], s[k]))
+    proffile.write('{0:1.14E} {1:1.14E} {1:1.14E} {2:1.14E}\n'.format(z[k], u[k], s[k]))
 proffile.close()
