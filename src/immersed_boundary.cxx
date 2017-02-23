@@ -115,8 +115,8 @@ void Immersed_boundary::create()
         for (int m=0; m<mblocks; ++m)
         {
             // Calculate the absolute grid indices of the faces.
-            const int iface_west = m*istep + istep/2 - iblock/2;
-            const int iface_east = m*istep + istep/2 + iblock/2+1;
+            const int iface_start = m*istep + istep/2 - iblock/2;
+            const int iface_end = m*istep + istep/2 + iblock/2;
             const int jface_start = n*jstep + jstep/2 - jblock/2;
             const int jface_end = n*jstep + jstep/2 + jblock/2;
             const int kface_start = 0;
@@ -134,12 +134,12 @@ void Immersed_boundary::create()
             if ( !(jface_start_in_range || jface_end_in_range) )
                 continue;
 
-            if ( !(iface_west < imin_abs || iface_west >= imax_abs) )
+            if ( !(iface_start < imin_abs || iface_start >= imax_abs) )
             {
                 // Store the part of the face that is in range and add ghost cells.
                 East_west_face west_face;
 
-                west_face.i = iface_west%grid.imax + grid.igc;
+                west_face.i = iface_start%grid.imax + grid.igc;
 
                 west_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
                 west_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
@@ -149,12 +149,12 @@ void Immersed_boundary::create()
                 west_faces.push_back(west_face);
             }
 
-            if ( !(iface_east < imin_abs || iface_east >= imax_abs) )
+            if ( !(iface_end < imin_abs || iface_end >= imax_abs) )
             {
                 // Store the part of the face that is in range and add ghost cells.
                 East_west_face east_face;
 
-                east_face.i = iface_east%grid.imax + grid.igc;
+                east_face.i = iface_end%grid.imax + grid.igc;
 
                 east_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
                 east_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
