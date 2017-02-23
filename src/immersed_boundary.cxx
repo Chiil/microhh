@@ -193,14 +193,16 @@ void Immersed_boundary::create()
             const int jmax_abs = jmin_abs + grid.jmax;
 
             // Check whether there is an edge in range.
-            const bool iface_start_in_range = (iface_start >= imin_abs) && (iface_start < imax_abs);
-            const bool iface_end_in_range   = (iface_end   >= imin_abs) && (iface_end   < imax_abs);
+            const bool iface_start_in_range = (iface_start >= imin_abs) && (iface_start <  imax_abs);
+            const bool iface_end_in_range   = (iface_end   >= imin_abs) && (iface_end   <  imax_abs);
+            const bool iface_full_in_range  = (iface_start <  imin_abs) && (iface_end   >= imax_abs);
 
-            const bool jface_start_in_range = (jface_start >= jmin_abs) && (jface_start < jmax_abs);
-            const bool jface_end_in_range   = (jface_end   >= jmin_abs) && (jface_end   < jmax_abs);
+            const bool jface_start_in_range = (jface_start >= jmin_abs) && (jface_start <  jmax_abs);
+            const bool jface_end_in_range   = (jface_end   >= jmin_abs) && (jface_end   <  jmax_abs);
+            const bool jface_full_in_range  = (jface_start <  jmin_abs) && (jface_end   >= jmax_abs);
 
             // EAST-WEST FACES
-            if ( (jface_start_in_range || jface_end_in_range) )
+            if ( (jface_start_in_range || jface_end_in_range || jface_full_in_range) )
             {
                 if ( !(iface_start < imin_abs || iface_start >= imax_abs) )
                 {
@@ -234,7 +236,7 @@ void Immersed_boundary::create()
             }
 
             // NORTH-SOUTH FACES
-            if ( (iface_start_in_range || iface_end_in_range) )
+            if ( (iface_start_in_range || iface_end_in_range || iface_full_in_range) )
             {
                 if ( !(jface_start < jmin_abs || jface_start >= jmax_abs) )
                 {
