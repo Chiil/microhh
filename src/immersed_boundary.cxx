@@ -48,11 +48,23 @@ namespace
         int kend;
     };
 
+    struct Top_bottom_face
+    {
+        int istart;
+        int iend;
+        int jstart;
+        int jend;
+        int k;
+    };
+
     std::vector<East_west_face> west_faces;
     std::vector<East_west_face> east_faces;
 
     std::vector<North_south_face> south_faces;
     std::vector<North_south_face> north_faces;
+
+    std::vector<Top_bottom_face> bottom_faces;
+    std::vector<Top_bottom_face> top_faces;
 
     std::string swib;
     int mblocks;
@@ -98,6 +110,26 @@ namespace
                  const int ijk = i + jface*jj + k*kk;
                  v [ijk] = 0.;
                  vt[ijk] = 0.;
+             }
+    }
+
+    void set_top_bottom_face_no_penetration(double* const restrict wt,
+                                            double* const restrict w,
+                                            const int istart, const int iend,
+                                            const int jstart, const int jend,
+                                            const int kface,
+                                            const int icells, const int ijcells)
+    {
+        const int jj = icells;
+        const int kk = ijcells;
+
+        // Enforce no penetration for v.
+        for (int j=jstart; j<jend; ++j)
+            for (int i=istart; i<iend; ++i)
+             {
+                 const int ijk = i + j*jj + kface*kk;
+                 w [ijk] = 0.;
+                 wt[ijk] = 0.;
              }
     }
 }
@@ -273,4 +305,20 @@ void Immersed_boundary::exec(Fields& fields)
                                             face.j,
                                             face.kstart, face.kend,
                                             grid.icells, grid.ijcells);
+
+    for (Top_bottom_face& face : bottom_faces)
+        set_top_bottom_face_no_penetration(fields.wt->data,
+                                           fields.w->data,
+                                           face.istart, face.iend,
+                                           face.jstart, face.jend,
+                                           face.k,
+                                           grid.icells, grid.ijcells);
+
+    for (Top_bottom_face& face : top_faces)
+        set_top_bottom_face_no_penetration(fields.wt->data,
+                                           fields.w->data,
+                                           face.istart, face.iend,
+                                           face.jstart, face.jend,
+                                           face.k,
+                                           grid.icells, grid.ijcells);
 }
