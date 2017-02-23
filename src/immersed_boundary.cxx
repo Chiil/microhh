@@ -39,8 +39,20 @@ namespace
         int kend;
     };
 
+    struct North_south_face
+    {
+        int istart;
+        int iend;
+        int j;
+        int kstart;
+        int kend;
+    };
+
     std::vector<East_west_face> west_faces;
     std::vector<East_west_face> east_faces;
+
+    std::vector<North_south_face> south_faces;
+    std::vector<North_south_face> north_faces;
 
     std::string swib;
     int mblocks;
@@ -66,6 +78,26 @@ namespace
                  const int ijk = iface + j*jj + k*kk;
                  u [ijk] = 0.;
                  ut[ijk] = 0.;
+             }
+    }
+
+    void set_north_south_face_no_penetration(double* const restrict vt,
+                                             double* const restrict v,
+                                             const int istart, const int iend,
+                                             const int jface,
+                                             const int kstart, const int kend,
+                                             const int icells, const int ijcells)
+    {
+        const int jj = icells;
+        const int kk = ijcells;
+
+        // Enforce no penetration for v.
+        for (int k=kstart; k<kend; ++k)
+            for (int i=istart; i<iend; ++i)
+             {
+                 const int ijk = i + jface*jj + k*kk;
+                 v [ijk] = 0.;
+                 vt[ijk] = 0.;
              }
     }
 }
@@ -128,40 +160,79 @@ void Immersed_boundary::create()
             const int jmin_abs = master.mpicoordy*grid.jmax;
             const int jmax_abs = jmin_abs + grid.jmax;
 
+            // Check whether there is an edge in range.
+            const bool iface_start_in_range = (iface_start >= imin_abs) && (iface_start < imax_abs);
+            const bool iface_end_in_range   = (iface_end   >= imin_abs) && (iface_end   < imax_abs);
+
             const bool jface_start_in_range = (jface_start >= jmin_abs) && (jface_start < jmax_abs);
             const bool jface_end_in_range   = (jface_end   >= jmin_abs) && (jface_end   < jmax_abs);
 
-            if ( !(jface_start_in_range || jface_end_in_range) )
-                continue;
-
-            if ( !(iface_start < imin_abs || iface_start >= imax_abs) )
+            // EAST-WEST FACES
+            if ( (jface_start_in_range || jface_end_in_range) )
             {
-                // Store the part of the face that is in range and add ghost cells.
-                East_west_face west_face;
+                if ( !(iface_start < imin_abs || iface_start >= imax_abs) )
+                {
+                    // Store the part of the face that is in range and add ghost cells.
+                    East_west_face west_face;
 
-                west_face.i = iface_start%grid.imax + grid.igc;
+                    west_face.i = iface_start%grid.imax + grid.igc;
 
-                west_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
-                west_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
-                west_face.kstart = kface_start + grid.kgc;
-                west_face.kend   = kface_end   + grid.kgc;
+                    west_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
+                    west_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
+                    west_face.kstart = kface_start + grid.kgc;
+                    west_face.kend   = kface_end   + grid.kgc;
 
-                west_faces.push_back(west_face);
+                    west_faces.push_back(west_face);
+                }
+
+                if ( !(iface_end < imin_abs || iface_end >= imax_abs) )
+                {
+                    // Store the part of the face that is in range and add ghost cells.
+                    East_west_face east_face;
+
+                    east_face.i = iface_end%grid.imax + grid.igc;
+
+                    east_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
+                    east_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
+                    east_face.kstart = kface_start + grid.kgc;
+                    east_face.kend   = kface_end + grid.kgc;
+
+                    east_faces.push_back(east_face);
+                }
             }
 
-            if ( !(iface_end < imin_abs || iface_end >= imax_abs) )
+            // NORTH-SOUTH FACES
+            if ( (iface_start_in_range || iface_end_in_range) )
             {
-                // Store the part of the face that is in range and add ghost cells.
-                East_west_face east_face;
+                if ( !(jface_start < jmin_abs || jface_start >= jmax_abs) )
+                {
+                    // Store the part of the face that is in range and add ghost cells.
+                    North_south_face south_face;
 
-                east_face.i = iface_end%grid.imax + grid.igc;
+                    south_face.j = jface_start%grid.jmax + grid.jgc;
 
-                east_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
-                east_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
-                east_face.kstart = kface_start + grid.kgc;
-                east_face.kend   = kface_end   + grid.kgc;
+                    south_face.istart = (iface_start_in_range ? iface_start%grid.imax : 0) + grid.igc;
+                    south_face.iend   = (iface_end_in_range ? iface_end%grid.imax : grid.imax) + grid.igc;
+                    south_face.kstart = kface_start + grid.kgc;
+                    south_face.kend   = kface_end + grid.kgc;
 
-                east_faces.push_back(east_face);
+                    south_faces.push_back(south_face);
+                }
+
+                if ( !(jface_start < jmin_abs || jface_start >= jmax_abs) )
+                {
+                    // Store the part of the face that is in range and add ghost cells.
+                    North_south_face north_face;
+
+                    north_face.j = jface_end%grid.jmax + grid.jgc;
+
+                    north_face.istart = (iface_start_in_range ? iface_start%grid.imax : 0) + grid.igc;
+                    north_face.iend   = (iface_end_in_range ? iface_end%grid.imax : grid.imax) + grid.igc;
+                    north_face.kstart = kface_start + grid.kgc;
+                    north_face.kend   = kface_end + grid.kgc;
+
+                    north_faces.push_back(north_face);
+                }
             }
         }
 }
@@ -187,35 +258,19 @@ void Immersed_boundary::exec(Fields& fields)
                                           face.kstart, face.kend,
                                           grid.icells, grid.ijcells);
 
-    /*
-    set_no_penetration(fields.ut->data, fields.vt->data, fields.wt->data,
-                       fields.u->data, fields.v->data, fields.w->data,
-                       grid.istart, grid.iend,
-                       grid.jstart, grid.jend,
-                       grid.kstart, grid.kend,
-                       grid.icells, grid.ijcells);
+    for (North_south_face& face : south_faces)
+        set_north_south_face_no_penetration(fields.vt->data,
+                                            fields.v->data,
+                                            face.istart, face.iend,
+                                            face.j,
+                                            face.kstart, face.kend,
+                                            grid.icells, grid.ijcells);
 
-    set_no_slip(fields.ut->data, fields.vt->data, fields.wt->data,
-                fields.u->data, fields.v->data, fields.w->data,
-                fields.rhoref, fields.rhorefh,
-                grid.dzi, grid.dzhi,
-                grid.dxi, grid.dyi,
-                fields.visc,
-                grid.istart, grid.iend,
-                grid.jstart, grid.jend,
-                grid.kstart, grid.kend,
-                grid.icells, grid.ijcells);
-
-    for (FieldMap::const_iterator it = fields.st.begin(); it!=fields.st.end(); it++)
-        set_scalar(it->second->data, fields.sp[it->first]->data,
-                   fields.u->data, fields.v->data, fields.w->data,
-                   fields.rhoref, fields.rhorefh,
-                   grid.dzi, grid.dzhi,
-                   grid.dxi, grid.dyi,
-                   fields.sp[it->first]->visc,
-                   grid.istart, grid.iend,
-                   grid.jstart, grid.jend,
-                   grid.kstart, grid.kend,
-                   grid.icells, grid.ijcells);
-                   */
+    for (North_south_face& face : north_faces)
+        set_north_south_face_no_penetration(fields.vt->data,
+                                            fields.v->data,
+                                            face.istart, face.iend,
+                                            face.j,
+                                            face.kstart, face.kend,
+                                            grid.icells, grid.ijcells);
 }
