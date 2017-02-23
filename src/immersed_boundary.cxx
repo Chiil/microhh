@@ -30,7 +30,7 @@
 
 namespace
 {
-    struct West_face
+    struct East_west_face
     {
         int i;
         int jstart;
@@ -39,7 +39,8 @@ namespace
         int kend;
     };
 
-    std::vector<West_face> west_faces;
+    std::vector<East_west_face> west_faces;
+    std::vector<East_west_face> east_faces;
 
     std::string swib;
     int mblocks;
@@ -48,24 +49,22 @@ namespace
     int jblock;
     int kblock;
 
-    void set_west_face(double* const restrict ut, double* const restrict vt, double* const restrict wt,
-                       double* const restrict u, double* const restrict v, double* const restrict w,
-                       const int iface,
-                       const int jstart, const int jend,
-                       const int kstart, const int kend,
-                       const int icells, const int ijcells)
+    void set_east_west_face_no_penetration(double* const restrict ut,
+                                           double* const restrict u,
+                                           const int iface,
+                                           const int jstart, const int jend,
+                                           const int kstart, const int kend,
+                                           const int icells, const int ijcells)
     {
         const int jj = icells;
         const int kk = ijcells;
 
-        // Enforce no penetration for u
+        // Enforce no penetration for u.
         for (int k=kstart; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
              {
                  const int ijk = iface + j*jj + k*kk;
                  u [ijk] = 0.;
-                 u [ijk] = 0.;
-                 ut[ijk] = 0.;
                  ut[ijk] = 0.;
              }
     }
@@ -116,20 +115,18 @@ void Immersed_boundary::create()
         for (int m=0; m<mblocks; ++m)
         {
             // Calculate the absolute grid indices of the faces.
-            const int iface = m*istep + istep/2 - iblock/2;
+            const int iface_west = m*istep + istep/2 - iblock/2;
+            const int iface_east = m*istep + istep/2 + iblock/2+1;
             const int jface_start = n*jstep + jstep/2 - jblock/2;
             const int jface_end = n*jstep + jstep/2 + jblock/2;
             const int kface_start = 0;
             const int kface_end = kblock;
 
-            // Check the ranges of i and j.
+            // Check the ranges of i and j for the specific MPI process.
             const int imin_abs = master.mpicoordx*grid.imax;
             const int imax_abs = imin_abs + grid.imax;
             const int jmin_abs = master.mpicoordy*grid.jmax;
             const int jmax_abs = jmin_abs + grid.jmax;
-
-            if (iface < imin_abs || iface >= imax_abs)
-                continue;
 
             const bool jface_start_in_range = (jface_start >= jmin_abs) && (jface_start < jmax_abs);
             const bool jface_end_in_range   = (jface_end   >= jmin_abs) && (jface_end   < jmax_abs);
@@ -137,21 +134,36 @@ void Immersed_boundary::create()
             if ( !(jface_start_in_range || jface_end_in_range) )
                 continue;
 
-            // Store the part of the face that is in range and add ghost cells.
-            West_face west_face;
+            if ( !(iface_west < imin_abs || iface_west >= imax_abs) )
+            {
+                // Store the part of the face that is in range and add ghost cells.
+                East_west_face west_face;
 
-            west_face.i = iface % grid.imax + grid.igc;
+                west_face.i = iface_west%grid.imax + grid.igc;
 
-            west_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
-            west_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
-            west_face.kstart = kface_start + grid.kgc;
-            west_face.kend   = kface_end   + grid.kgc;
+                west_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
+                west_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
+                west_face.kstart = kface_start + grid.kgc;
+                west_face.kend   = kface_end   + grid.kgc;
 
-            west_faces.push_back(west_face);
+                west_faces.push_back(west_face);
+            }
+
+            if ( !(iface_east < imin_abs || iface_east >= imax_abs) )
+            {
+                // Store the part of the face that is in range and add ghost cells.
+                East_west_face east_face;
+
+                east_face.i = iface_east%grid.imax + grid.igc;
+
+                east_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
+                east_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
+                east_face.kstart = kface_start + grid.kgc;
+                east_face.kend   = kface_end   + grid.kgc;
+
+                east_faces.push_back(east_face);
+            }
         }
-
-    // for (West_face& wf : west_faces)
-    //     std::printf("%d, %d, %d, %d, %d, %d\n", master.mpiid, wf.i, wf.jstart, wf.jend, wf.kstart, wf.kend);
 }
 
 void Immersed_boundary::exec(Fields& fields)
@@ -159,13 +171,21 @@ void Immersed_boundary::exec(Fields& fields)
     if (swib != "1")
         return;
 
-    for (West_face& face : west_faces)
-        set_west_face(fields.ut->data, fields.vt->data, fields.wt->data,
-                      fields.u->data, fields.v->data, fields.w->data,
-                      face.i,
-                      face.jstart, face.jend,
-                      face.kstart, face.kend,
-                      grid.icells, grid.ijcells);
+    for (East_west_face& face : west_faces)
+        set_east_west_face_no_penetration(fields.ut->data,
+                                          fields.u->data,
+                                          face.i,
+                                          face.jstart, face.jend,
+                                          face.kstart, face.kend,
+                                          grid.icells, grid.ijcells);
+
+    for (East_west_face& face : east_faces)
+        set_east_west_face_no_penetration(fields.ut->data,
+                                          fields.u->data,
+                                          face.i,
+                                          face.jstart, face.jend,
+                                          face.kstart, face.kend,
+                                          grid.icells, grid.ijcells);
 
     /*
     set_no_penetration(fields.ut->data, fields.vt->data, fields.wt->data,
