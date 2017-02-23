@@ -270,36 +270,26 @@ void Immersed_boundary::create()
             }
 
             // TOP-DOWN FACES
-            if (false)
+            if (   jface_start_in_range || jface_end_in_range || jface_full_in_range 
+                || iface_start_in_range || iface_end_in_range || iface_full_in_range )
             {
                 if ( !(jface_start < jmin_abs || jface_start >= jmax_abs) )
                 {
                     // Store the part of the face that is in range and add ghost cells.
-                    Top_bottom_face bottom_face;
+                    Top_bottom_face face;
 
-                    bottom_face.k = kface_start + grid.kgc;
+                    face.k = kface_start + grid.kgc;
 
-                    bottom_face.istart = (iface_start_in_range ? iface_start%grid.imax : 0) + grid.igc;
-                    bottom_face.iend   = (iface_end_in_range ? iface_end%grid.imax : grid.imax) + grid.igc;
-                    bottom_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
-                    bottom_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
+                    face.istart = (iface_start_in_range ? iface_start%grid.imax : 0) + grid.igc;
+                    face.iend   = (iface_end_in_range ? iface_end%grid.imax : grid.imax) + grid.igc;
+                    face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
+                    face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
 
-                    bottom_faces.push_back(bottom_face);
-                }
+                    bottom_faces.push_back(face);
 
-                if ( !(jface_start < jmin_abs || jface_start >= jmax_abs) )
-                {
-                    // Store the part of the face that is in range and add ghost cells.
-                    Top_bottom_face top_face;
+                    face.k = kface_end + grid.kgc;
 
-                    top_face.k = kface_end + grid.kgc;
-
-                    top_face.istart = (iface_start_in_range ? iface_start%grid.imax : 0) + grid.igc;
-                    top_face.iend   = (iface_end_in_range ? iface_end%grid.imax : grid.imax) + grid.igc;
-                    top_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
-                    top_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
-
-                    top_faces.push_back(top_face);
+                    top_faces.push_back(face);
                 }
             }
         }
