@@ -251,7 +251,7 @@ void Immersed_boundary::create()
                     south_faces.push_back(south_face);
                 }
 
-                if ( !(jface_start < jmin_abs || jface_start >= jmax_abs) )
+                if ( !(jface_end < jmin_abs || jface_end >= jmax_abs) )
                 {
                     // Store the part of the face that is in range and add ghost cells.
                     North_south_face north_face;
@@ -268,7 +268,7 @@ void Immersed_boundary::create()
             }
 
             // TOP-DOWN FACES
-            if ( true )
+            if (false)
             {
                 if ( !(jface_start < jmin_abs || jface_start >= jmax_abs) )
                 {
@@ -300,7 +300,6 @@ void Immersed_boundary::create()
                     top_faces.push_back(top_face);
                 }
             }
-
         }
 }
 
