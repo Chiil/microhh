@@ -198,6 +198,8 @@ void Model::load()
     force ->create(input);
     thermo->create(input);
 
+    immersed_boundary->create();
+
     budget->create();
 
     // End with those modules that require all fields to be loaded.
