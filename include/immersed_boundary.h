@@ -34,6 +34,7 @@ class Immersed_boundary
         Immersed_boundary(Master&, Grid&, Input&); ///< Constructor of the class.
         ~Immersed_boundary(); ///< Destructor of the class.
 
+        void create();
         void exec(Fields&);
 
     private:
