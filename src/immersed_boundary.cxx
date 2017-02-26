@@ -176,6 +176,7 @@ void Immersed_boundary::create()
     const int jstep = grid.jtot/nblocks;
 
     for (int n=0; n<nblocks; ++n)
+    {
         for (int m=0; m<mblocks; ++m)
         {
             // Calculate the absolute grid indices of the faces.
@@ -183,8 +184,12 @@ void Immersed_boundary::create()
             const int iface_end = m*istep + istep/2 + iblock/2;
             const int jface_start = n*jstep + jstep/2 - jblock/2;
             const int jface_end = n*jstep + jstep/2 + jblock/2;
+            // const int iface_start = m*istep;
+            // const int iface_end = iface_start + iblock;
+            // const int jface_start = n*jstep;
+            // const int jface_end = jface_start + jblock;
             const int kface_start = 0;
-            const int kface_end = kblock;
+            const int kface_end = kface_start + kblock;
 
             // Check the ranges of i and j for the specific MPI process.
             const int imin_abs = master.mpicoordx*grid.imax;
@@ -192,14 +197,14 @@ void Immersed_boundary::create()
             const int jmin_abs = master.mpicoordy*grid.jmax;
             const int jmax_abs = jmin_abs + grid.jmax;
 
-            // Check whether there is an edge in range.
-            const bool iface_start_in_range = (iface_start >= imin_abs) && (iface_start <  imax_abs);
-            const bool iface_end_in_range   = (iface_end   >= imin_abs) && (iface_end   <  imax_abs);
-            const bool iface_fully_in_range = (iface_start <  imin_abs) && (iface_end   >= imax_abs);
+            // Check whether there is an edge in range. Take also one ghost cell into account.
+            const bool iface_start_in_range = (iface_start >= imin_abs-1) && (iface_start <  imax_abs+1);
+            const bool iface_end_in_range   = (iface_end   >= imin_abs-1) && (iface_end   <  imax_abs+1);
+            const bool iface_fully_in_range = false; //(iface_start <  imin_abs) && (iface_end   >= imax_abs);
 
-            const bool jface_start_in_range = (jface_start >= jmin_abs) && (jface_start <  jmax_abs);
-            const bool jface_end_in_range   = (jface_end   >= jmin_abs) && (jface_end   <  jmax_abs);
-            const bool jface_fully_in_range = (jface_start <  jmin_abs) && (jface_end   >= jmax_abs);
+            const bool jface_start_in_range = (jface_start >= jmin_abs-1) && (jface_start <  jmax_abs+1);
+            const bool jface_end_in_range   = (jface_end   >= jmin_abs-1) && (jface_end   <  jmax_abs+1);
+            const bool jface_fully_in_range = false; //(jface_start <  jmin_abs) && (jface_end   >= jmax_abs);
 
             // EAST-WEST FACES
             if ( (jface_start_in_range || jface_end_in_range || jface_fully_in_range) )
@@ -211,8 +216,8 @@ void Immersed_boundary::create()
 
                     west_face.i = iface_start%grid.imax + grid.igc;
 
-                    west_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
-                    west_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
+                    west_face.jstart = (jface_start_in_range ? jface_start-n*grid.jmax : 0) + grid.jgc;
+                    west_face.jend   = (jface_end_in_range ? jface_end-n*grid.jmax : grid.jmax) + grid.jgc;
                     west_face.kstart = kface_start + grid.kgc;
                     west_face.kend   = kface_end   + grid.kgc;
 
@@ -226,8 +231,8 @@ void Immersed_boundary::create()
 
                     east_face.i = iface_end%grid.imax + grid.igc;
 
-                    east_face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
-                    east_face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
+                    east_face.jstart = (jface_start_in_range ? jface_start-n*grid.jmax : 0) + grid.jgc;
+                    east_face.jend   = (jface_end_in_range ? jface_end-n*grid.jmax : grid.jmax) + grid.jgc;
                     east_face.kstart = kface_start + grid.kgc;
                     east_face.kend   = kface_end + grid.kgc;
 
@@ -245,8 +250,8 @@ void Immersed_boundary::create()
 
                     south_face.j = jface_start%grid.jmax + grid.jgc;
 
-                    south_face.istart = (iface_start_in_range ? iface_start%grid.imax : 0) + grid.igc;
-                    south_face.iend   = (iface_end_in_range ? iface_end%grid.imax : grid.imax) + grid.igc;
+                    south_face.istart = (iface_start_in_range ? iface_start-m*grid.imax : 0) + grid.igc;
+                    south_face.iend   = (iface_end_in_range ? iface_end-m*grid.imax : grid.imax) + grid.igc;
                     south_face.kstart = kface_start + grid.kgc;
                     south_face.kend   = kface_end + grid.kgc;
 
@@ -260,8 +265,8 @@ void Immersed_boundary::create()
 
                     north_face.j = jface_end%grid.jmax + grid.jgc;
 
-                    north_face.istart = (iface_start_in_range ? iface_start%grid.imax : 0) + grid.igc;
-                    north_face.iend   = (iface_end_in_range ? iface_end%grid.imax : grid.imax) + grid.igc;
+                    north_face.istart = (iface_start_in_range ? iface_start-m*grid.imax : 0) + grid.igc;
+                    north_face.iend   = (iface_end_in_range ? iface_end-m*grid.imax : grid.imax) + grid.igc;
                     north_face.kstart = kface_start + grid.kgc;
                     north_face.kend   = kface_end + grid.kgc;
 
@@ -278,10 +283,10 @@ void Immersed_boundary::create()
 
                 face.k = kface_start + grid.kgc;
 
-                face.istart = (iface_start_in_range ? iface_start%grid.imax : 0) + grid.igc;
-                face.iend   = (iface_end_in_range ? iface_end%grid.imax : grid.imax) + grid.igc;
-                face.jstart = (jface_start_in_range ? jface_start%grid.jmax : 0) + grid.jgc;
-                face.jend   = (jface_end_in_range ? jface_end%grid.jmax : grid.jmax) + grid.jgc;
+                face.istart = (iface_start_in_range ? iface_start-m*grid.imax : 0) + grid.igc;
+                face.iend   = (iface_end_in_range ? iface_end-m*grid.imax : grid.imax) + grid.igc;
+                face.jstart = (jface_start_in_range ? jface_start-n*grid.jmax : 0) + grid.jgc;
+                face.jend   = (jface_end_in_range ? jface_end-n*grid.jmax : grid.jmax) + grid.jgc;
 
                 bottom_faces.push_back(face);
 
@@ -290,6 +295,11 @@ void Immersed_boundary::create()
                 top_faces.push_back(face);
             }
         }
+    }
+
+    for (East_west_face& face : east_faces)
+        std::printf("CvH east (%d): %d, %d, %d\n", master.mpiid, face.i, face.jstart, face.jend);
+    throw 1;
 }
 
 void Immersed_boundary::exec(Fields& fields)
