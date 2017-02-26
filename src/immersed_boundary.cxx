@@ -192,19 +192,20 @@ void Immersed_boundary::create()
             const int kface_end = kface_start + kblock;
 
             // Check the ranges of i and j for the specific MPI process.
-            const int imin_abs = master.mpicoordx*grid.imax;
-            const int imax_abs = imin_abs + grid.imax;
-            const int jmin_abs = master.mpicoordy*grid.jmax;
-            const int jmax_abs = jmin_abs + grid.jmax;
+            // The range is extended with one ghost cell.
+            const int imin_abs = master.mpicoordx*grid.imax - 1;
+            const int imax_abs = (master.mpicoordx+1)*grid.imax + 1;
+            const int jmin_abs = master.mpicoordy*grid.jmax - 1;
+            const int jmax_abs = (master.mpicoordy+1)*grid.jmax + 1;
 
-            // Check whether there is an edge in range. Take also one ghost cell into account.
-            const bool iface_start_in_range = (iface_start >= imin_abs-1) && (iface_start <  imax_abs+1);
-            const bool iface_end_in_range   = (iface_end   >= imin_abs-1) && (iface_end   <  imax_abs+1);
-            const bool iface_fully_in_range = false; //(iface_start <  imin_abs) && (iface_end   >= imax_abs);
+            // Check whether there is an edge in range.
+            const bool iface_start_in_range = (iface_start >= imin_abs) && (iface_start <  imax_abs);
+            const bool iface_end_in_range   = (iface_end   >= imin_abs) && (iface_end   <  imax_abs);
+            const bool iface_fully_in_range = (iface_start <  imin_abs) && (iface_end   >= imax_abs);
 
-            const bool jface_start_in_range = (jface_start >= jmin_abs-1) && (jface_start <  jmax_abs+1);
-            const bool jface_end_in_range   = (jface_end   >= jmin_abs-1) && (jface_end   <  jmax_abs+1);
-            const bool jface_fully_in_range = false; //(jface_start <  jmin_abs) && (jface_end   >= jmax_abs);
+            const bool jface_start_in_range = (jface_start >= jmin_abs) && (jface_start <  jmax_abs);
+            const bool jface_end_in_range   = (jface_end   >= jmin_abs) && (jface_end   <  jmax_abs);
+            const bool jface_fully_in_range = (jface_start <  jmin_abs) && (jface_end   >= jmax_abs);
 
             // EAST-WEST FACES
             if ( (jface_start_in_range || jface_end_in_range || jface_fully_in_range) )
