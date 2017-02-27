@@ -58,6 +58,7 @@ namespace
                 {
                     const int ij  = i + j*jj;
                     const int ijk = i + j*jj + k*kk;
+
                     if (ib[ij] & 1)
                     {
                         ut[ijk] = 0.;
@@ -212,22 +213,22 @@ void Immersed_boundary::create()
     {
         for (int i=grid.istart; i<grid.iend; ++i)
         {
-            const int ij = i + j*grid.icells;
+            const int ij = i + j*jj;
             // Flag west.
             if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij-ii] == 0)
-                ib_pattern[ij] &= 1;
+                ib_pattern[ij] |= 1;
             // Flag east.
             if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij+ii] == 0)
-                ib_pattern[ij] &= 2;
+                ib_pattern[ij] |= 2;
             // Flag south.
             if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij-jj] == 0)
-                ib_pattern[ij] &= 4;
+                ib_pattern[ij] |= 4;
             // Flag north.
             if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij+jj] == 0)
-                ib_pattern[ij] &= 8;
+                ib_pattern[ij] |= 8;
             // Flag top.
             if (ib_pattern_tmp[ij] == 1)
-                ib_pattern[ij] &= 16;
+                ib_pattern[ij] |= 16;
         }
     }
 }
@@ -242,7 +243,7 @@ void Immersed_boundary::exec(Fields& fields)
                        ib_pattern.data(),
                        grid.istart, grid.iend,
                        grid.jstart, grid.jend,
-                       grid.kstart, grid.kend,
+                       grid.kstart, grid.kstart+kblock,
                        grid.icells, grid.ijcells);
 
     /*
