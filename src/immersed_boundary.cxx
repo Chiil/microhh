@@ -90,7 +90,7 @@ namespace
                     }
                 }
 
-        // Set the top no-penetration BC.
+        // Set the top.
         for (int j=jstart; j<jend; ++j)
             for (int i=istart; i<iend; ++i)
             {
@@ -98,21 +98,25 @@ namespace
                 const int ij = i + j*jj;
                 const int ijk = i + j*jj + k*kk;
 
+                const bool at_top = ib[ij] & 16;
+                const bool east_of_top = !(ib[ij] & 16) && (ib[ij-ii] & 16);
+                const bool north_of_top = !(ib[ij] & 16) && (ib[ij-jj] & 16);
+
                 // Top face.
-                if (ib[ij] & 16)
+                if (at_top)
                 {
                     wt[ijk] = 0.;
                     w [ijk] = 0.;
                 }
 
-                if ( (ib[ij] & 16) || (!(ib[ij] & 16) && (ib[ij-ii] & 16) ) )
+                if ( at_top || ( !at_top && east_of_top) )
                 {
                     ut[ijk] += - ( rhorefh[k] * interp2(w[ijk-ii], w[ijk]) * interp2(u[ijk-kk], u[ijk]) ) / rhoref[k] * dzi[k]
                                + visc * ( (u[ijk] - u[ijk-kk]) * dzhi[k] ) * dzi[k]
                                - visc * ( 2.*u[ijk] * dzhi[k] ) * dzi[k];
                 }
                     
-                if ( (ib[ij] & 16) || (!(ib[ij] & 16) && (ib[ij-jj] & 16) ) )
+                if ( at_top || ( !at_top && north_of_top) )
                 {
                     vt[ijk] += - ( rhorefh[k] * interp2(w[ijk-jj], w[ijk]) * interp2(v[ijk-kk], v[ijk]) ) / rhoref[k] * dzi[k]
                                + visc * ( (v[ijk] - v[ijk-kk]) * dzhi[k] ) * dzi[k]
@@ -120,6 +124,94 @@ namespace
                 }
             }
     }
+
+    void set_scalar(double* const restrict st, const double* const restrict s,
+                    const double* const restrict u, const double* const restrict v, const double* const restrict w,
+                    const int* const ib,
+                    double* const restrict rhoref, double* const restrict rhorefh,
+                    double* const restrict dzi, double* const restrict dzhi,
+                    const double dxi, const double dyi,
+                    const double visc,
+                    const int istart, const int iend,
+                    const int jstart, const int jend,
+                    const int kstart, const int kend,
+                    const int jj, const int kk)
+    {
+        using Finite_difference::O2::interp2;
+
+        const int ii = 1;
+
+        const double dxidxi = dxi*dxi;
+        const double dyidyi = dyi*dyi;
+
+        // Enforce no penetration on faces. For simplicity, we
+        // also write the ib in the ghost cells on the edge. This
+        // is harmless.
+        for (int k=kstart; k<kend; ++k)
+            for (int j=jstart; j<jend; ++j)
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + k*kk;
+
+                    // West face.
+                    if (ib[ij+ii] & 1)
+                    {
+                        st[ijk] +=
+                                 + ( u[ijk+ii] * interp2(s[ijk], s[ijk+ii]) ) * dxi
+                                 - visc * ( s[ijk+ii] - s[ijk] ) * dxidxi
+                                 + 1.;
+                    }
+                    // East face.
+                    if (ib[ij-ii] & 2)
+                    {
+                        st[ijk] +=
+                                 - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
+                                 + visc * ( (s[ijk] - s[ijk-ii]) ) * dxidxi
+                                 + 1.;
+                    }
+                    // South face.
+                    if (ib[ij+jj] & 4)
+                    {
+                        st[ijk] +=
+                                 + ( v[ijk+jj] * interp2(s[ijk], s[ijk+jj]) ) * dyi
+                                 - visc * ( s[ijk+jj] - s[ijk] ) * dyidyi
+                                 + 1.;
+                    }
+                    // North face.
+                    if (ib[ij-jj] & 8)
+                    {
+                        st[ijk] +=
+                                 - ( v[ijk] * interp2(s[ijk-jj], s[ijk]) ) * dyi
+                                 + visc * ( (s[ijk] - s[ijk-jj]) ) * dyidyi
+                                 + 1.;
+                    }
+                }
+
+        // Set the top.
+        for (int j=jstart; j<jend; ++j)
+            for (int i=istart; i<iend; ++i)
+            {
+                const int ij = i + j*jj;
+
+                if (ib[ij] & 16)
+                {
+                    // int k = kstart;
+                    // int ijk = i + j*jj + k*kk;
+                    // st[ijk] +=
+                    //     + ( rhorefh[k+1] * w[ijk+kk] * interp2(s[ijk], s[ijk+kk]) ) / rhoref[k] * dzi[k]
+                    //     - visc * (s[ijk+kk] - s[ijk]) * dzhi[k+1] * dzi[k];
+
+                    int k = kend;
+                    int ijk = i + j*jj + k*kk;
+                    st[ijk] +=
+                             - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k]
+                             + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k]
+                             + 1.;
+                }
+            }
+    }
+
 }
 
 Immersed_boundary::Immersed_boundary(Master& masterin, Grid& gridin, Input& input) :
@@ -275,53 +367,20 @@ void Immersed_boundary::exec(Fields& fields)
                        grid.kstart, grid.kstart+kblock,
                        grid.icells, grid.ijcells);
 
-    /*
-    for (East_west_face& face : west_faces)
-        set_east_west_face_no_penetration(fields.ut->data,
-                                          fields.u->data,
-                                          face.i,
-                                          face.jstart, face.jend,
-                                          face.kstart, face.kend,
-                                          grid.icells, grid.ijcells);
 
-    for (East_west_face& face : east_faces)
-        set_east_west_face_no_penetration(fields.ut->data,
-                                          fields.u->data,
-                                          face.i,
-                                          face.jstart, face.jend,
-                                          face.kstart, face.kend,
-                                          grid.icells, grid.ijcells);
 
-    for (North_south_face& face : south_faces)
-        set_north_south_face_no_penetration(fields.vt->data,
-                                            fields.v->data,
-                                            face.istart, face.iend,
-                                            face.j,
-                                            face.kstart, face.kend,
-                                            grid.icells, grid.ijcells);
-
-    for (North_south_face& face : north_faces)
-        set_north_south_face_no_penetration(fields.vt->data,
-                                            fields.v->data,
-                                            face.istart, face.iend,
-                                            face.j,
-                                            face.kstart, face.kend,
-                                            grid.icells, grid.ijcells);
-
-    for (Top_bottom_face& face : bottom_faces)
-        set_top_bottom_face_no_penetration(fields.wt->data,
-                                           fields.w->data,
-                                           face.istart, face.iend,
-                                           face.jstart, face.jend,
-                                           face.k,
-                                           grid.icells, grid.ijcells);
-
-    for (Top_bottom_face& face : top_faces)
-        set_top_bottom_face_no_penetration(fields.wt->data,
-                                           fields.w->data,
-                                           face.istart, face.iend,
-                                           face.jstart, face.jend,
-                                           face.k,
-                                           grid.icells, grid.ijcells);
-                                           */
+    for (auto& s : fields.st)
+    {
+        set_scalar(s.second->data, fields.sp[s.first]->data,
+                   fields.u->data, fields.v->data, fields.w->data,
+                   ib_pattern.data(),
+                   fields.rhoref, fields.rhorefh,
+                   grid.dzi, grid.dzhi,
+                   grid.dxi, grid.dyi,
+                   fields.visc,
+                   grid.istart, grid.iend,
+                   grid.jstart, grid.jend,
+                   grid.kstart, grid.kstart+kblock,
+                   grid.icells, grid.ijcells);
+    }
 }
