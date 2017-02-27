@@ -52,7 +52,6 @@ namespace
         // Enforce no penetration on faces. For simplicity, we
         // also write the ib in the ghost cells on the edge. This
         // is harmless.
-
         for (int k=kstart; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
                 for (int i=istart; i<iend; ++i)
@@ -80,6 +79,18 @@ namespace
                         v [ijk+jj] = 0.;
                     }
                 }
+
+        // Set the top no-penetration BC.
+        for (int j=jstart; j<jend; ++j)
+            for (int i=istart; i<iend; ++i)
+            {
+                 const int ij  = i + j*jj;
+                 const int ijk = i + j*jj + kend*kk;
+                 if (ib[ij] & 16)
+                 {
+                     wt[ijk] = 0.;
+                     w [ijk] = 0.;
+                 }
     }
 
     /*
@@ -245,19 +256,19 @@ void Immersed_boundary::create()
             const int ij = i + j*grid.icells;
             // Flag west.
             if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij-ii] == 0)
-                ib_pattern[ij] &= 1<<0;
+                ib_pattern[ij] &= 1;
             // Flag east.
             if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij+ii] == 0)
-                ib_pattern[ij] &= 1<<1;
+                ib_pattern[ij] &= 2;
             // Flag south.
             if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij-jj] == 0)
-                ib_pattern[ij] &= 1<<2;
+                ib_pattern[ij] &= 4;
             // Flag north.
             if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij+jj] == 0)
-                ib_pattern[ij] &= 1<<3;
+                ib_pattern[ij] &= 8;
             // Flag top.
             if (ib_pattern_tmp[ij] == 1)
-                ib_pattern[ij] &= 1<<4;
+                ib_pattern[ij] &= 16;
         }
     }
 }
