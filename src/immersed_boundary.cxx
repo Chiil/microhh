@@ -39,26 +39,50 @@ namespace
 
     std::vector<int> ib_pattern;
 
-    void set_east_west_face_no_penetration(double* const restrict ut,
-                                           double* const restrict u,
-                                           const int iface,
-                                           const int jstart, const int jend,
-                                           const int kstart, const int kend,
-                                           const int icells, const int ijcells)
+    void set_no_penetration(double* const restrict ut, double* const restrict vt,
+                            double* const restrict u,  double* const restrict v,
+                            const int* const ib,
+                            const int istart, const int iend,
+                            const int jstart, const int jend,
+                            const int kstart, const int kend,
+                            const int jj, const int kk)
     {
-        const int jj = icells;
-        const int kk = ijcells;
+        const int ii = 1;
 
-        // Enforce no penetration for u.
+        // Enforce no penetration on faces. For simplicity, we
+        // also write the ib in the ghost cells on the edge. This
+        // is harmless.
+
         for (int k=kstart; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
-             {
-                 const int ijk = iface + j*jj + k*kk;
-                 u [ijk] = 0.;
-                 ut[ijk] = 0.;
-             }
+                for (int i=istart; i<iend; ++i)
+                {
+                    const int ij  = i + j*jj;
+                    const int ijk = i + j*jj + k*kk;
+                    if (ib[ij] & 1)
+                    {
+                        ut[ijk] = 0.;
+                        u [ijk] = 0.;
+                    }
+                    if (ib[ij] & 2)
+                    {
+                        ut[ijk+ii] = 0.;
+                        u [ijk+ii] = 0.;
+                    }
+                    if (ib[ij] & 4)
+                    {
+                        vt[ijk] = 0.;
+                        v [ijk] = 0.;
+                    }
+                    if (ib[ij] & 8)
+                    {
+                        vt[ijk+jj] = 0.;
+                        v [ijk+jj] = 0.;
+                    }
+                }
     }
 
+    /*
     void set_north_south_face_no_penetration(double* const restrict vt,
                                              double* const restrict v,
                                              const int istart, const int iend,
@@ -98,6 +122,7 @@ namespace
                  wt[ijk] = 0.;
              }
     }
+    */
 }
 
 Immersed_boundary::Immersed_boundary(Master& masterin, Grid& gridin, Input& input) :
@@ -137,7 +162,9 @@ void Immersed_boundary::init()
     if (swib != "1")
         return;
 
+    // Set the ib patterns to the correct size and initialize to zero.
     ib_pattern.resize(grid.ijcells);
+    std::fill(ib_pattern.begin(), ib_pattern.end(), 0);
 }
 
 void Immersed_boundary::create()
@@ -148,6 +175,9 @@ void Immersed_boundary::create()
     // Set the west faces
     const int istep = grid.itot/mblocks;
     const int jstep = grid.jtot/nblocks;
+
+    std::vector<int> ib_pattern_tmp(grid.ijcells, 0);
+    
 
     for (int n=0; n<nblocks; ++n)
     {
@@ -195,22 +225,55 @@ void Immersed_boundary::create()
                     for (int i=istart; i<iend; ++i)
                     {
                         const int ij = i + j*grid.icells;
-                        ib_pattern[ij] = kblock;
+                        ib_pattern_tmp[ij] = 1;
                     }
                 }
             }
         }
     }
 
-    grid.boundary_cyclic_2d(ib_pattern.data());
+    grid.boundary_cyclic_2d(ib_pattern_tmp.data());
 
-    throw 1;
+    const int ii = 1;
+    const int jj = grid.icells;
+
+    // This can be more elegantly solved with enum. For now, OK.
+    for (int j=grid.jstart; j<grid.jend; ++j)
+    {
+        for (int i=grid.istart; i<grid.iend; ++i)
+        {
+            const int ij = i + j*grid.icells;
+            // Flag west.
+            if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij-ii] == 0)
+                ib_pattern[ij] &= 1<<0;
+            // Flag east.
+            if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij+ii] == 0)
+                ib_pattern[ij] &= 1<<1;
+            // Flag south.
+            if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij-jj] == 0)
+                ib_pattern[ij] &= 1<<2;
+            // Flag north.
+            if (ib_pattern_tmp[ij] == 1 && ib_pattern_tmp[ij+jj] == 0)
+                ib_pattern[ij] &= 1<<3;
+            // Flag top.
+            if (ib_pattern_tmp[ij] == 1)
+                ib_pattern[ij] &= 1<<4;
+        }
+    }
 }
 
 void Immersed_boundary::exec(Fields& fields)
 {
     if (swib != "1")
         return;
+
+    set_no_penetration(fields.ut->data, fields.ut->data,
+                       fields.u->data, fields.v->data,
+                       ib_pattern.data(),
+                       grid.istart, grid.iend,
+                       grid.jstart, grid.jend,
+                       grid.kstart, grid.kend,
+                       grid.icells, grid.ijcells);
 
     /*
     for (East_west_face& face : west_faces)
