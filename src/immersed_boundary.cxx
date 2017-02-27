@@ -202,7 +202,7 @@ void Immersed_boundary::create()
         }
     }
 
-    grid.boundary_cyclic_2d(ib_pattern)
+    grid.boundary_cyclic_2d(ib_pattern.data());
 
     throw 1;
 }
