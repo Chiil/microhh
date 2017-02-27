@@ -170,6 +170,8 @@ void Model::init()
     pres    ->init();
     thermo  ->init();
 
+    immersed_boundary->init();
+
     stats ->init(timeloop->get_ifactor());
     cross ->init(timeloop->get_ifactor());
     dump  ->init(timeloop->get_ifactor());

@@ -37,6 +37,8 @@ namespace
     int jblock;
     int kblock;
 
+    std::vector<int> ib_pattern;
+
     void set_east_west_face_no_penetration(double* const restrict ut,
                                            double* const restrict u,
                                            const int iface,
@@ -130,6 +132,14 @@ Immersed_boundary::~Immersed_boundary()
 {
 }
 
+void Immersed_boundary::init()
+{
+    if (swib != "1")
+        return;
+
+    ib_pattern.resize(grid.ijcells);
+}
+
 void Immersed_boundary::create()
 {
     if (swib != "1")
@@ -180,10 +190,19 @@ void Immersed_boundary::create()
                 const int jstart = (jblock_start_in_range ? jblock_start : jmin_abs) - master.mpicoordy*grid.jmax + grid.jgc;
                 const int jend   = (jblock_end_in_range   ? jblock_end   : jmax_abs) - master.mpicoordy*grid.jmax + grid.jgc;
 
-                std::printf("CvH CHECK: (%d): %d, %d, %d, %d\n", master.mpiid, istart, iend, jstart, jend);
+                for (int j=jstart; j<jend; ++j)
+                {
+                    for (int i=istart; i<iend; ++i)
+                    {
+                        const int ij = i + j*grid.icells;
+                        ib_pattern[ij] = kblock;
+                    }
+                }
             }
         }
     }
+
+    grid.boundary_cyclic_2d(ib_pattern)
 
     throw 1;
 }
