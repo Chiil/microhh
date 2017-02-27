@@ -39,8 +39,8 @@ namespace
 
     std::vector<int> ib_pattern;
 
-    void set_no_penetration(double* const restrict ut, double* const restrict vt,
-                            double* const restrict u,  double* const restrict v,
+    void set_no_penetration(double* const restrict ut, double* const restrict vt, double* const restrict wt,
+                            double* const restrict u, double* const restrict v, double* const restrict w,
                             const int* const ib,
                             const int istart, const int iend,
                             const int jstart, const int jend,
@@ -91,49 +91,8 @@ namespace
                      wt[ijk] = 0.;
                      w [ijk] = 0.;
                  }
+            }
     }
-
-    /*
-    void set_north_south_face_no_penetration(double* const restrict vt,
-                                             double* const restrict v,
-                                             const int istart, const int iend,
-                                             const int jface,
-                                             const int kstart, const int kend,
-                                             const int icells, const int ijcells)
-    {
-        const int jj = icells;
-        const int kk = ijcells;
-
-        // Enforce no penetration for v.
-        for (int k=kstart; k<kend; ++k)
-            for (int i=istart; i<iend; ++i)
-             {
-                 const int ijk = i + jface*jj + k*kk;
-                 v [ijk] = 0.;
-                 vt[ijk] = 0.;
-             }
-    }
-
-    void set_top_bottom_face_no_penetration(double* const restrict wt,
-                                            double* const restrict w,
-                                            const int istart, const int iend,
-                                            const int jstart, const int jend,
-                                            const int kface,
-                                            const int icells, const int ijcells)
-    {
-        const int jj = icells;
-        const int kk = ijcells;
-
-        // Enforce no penetration for v.
-        for (int j=jstart; j<jend; ++j)
-            for (int i=istart; i<iend; ++i)
-             {
-                 const int ijk = i + j*jj + kface*kk;
-                 w [ijk] = 0.;
-                 wt[ijk] = 0.;
-             }
-    }
-    */
 }
 
 Immersed_boundary::Immersed_boundary(Master& masterin, Grid& gridin, Input& input) :
@@ -278,8 +237,8 @@ void Immersed_boundary::exec(Fields& fields)
     if (swib != "1")
         return;
 
-    set_no_penetration(fields.ut->data, fields.ut->data,
-                       fields.u->data, fields.v->data,
+    set_no_penetration(fields.ut->data, fields.ut->data, fields.wt->data,
+                       fields.u->data, fields.v->data, fields.w->data,
                        ib_pattern.data(),
                        grid.istart, grid.iend,
                        grid.jstart, grid.jend,
