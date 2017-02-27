@@ -30,42 +30,6 @@
 
 namespace
 {
-    struct East_west_face
-    {
-        int i;
-        int jstart;
-        int jend;
-        int kstart;
-        int kend;
-    };
-
-    struct North_south_face
-    {
-        int istart;
-        int iend;
-        int j;
-        int kstart;
-        int kend;
-    };
-
-    struct Top_bottom_face
-    {
-        int istart;
-        int iend;
-        int jstart;
-        int jend;
-        int k;
-    };
-
-    std::vector<East_west_face> west_faces;
-    std::vector<East_west_face> east_faces;
-
-    std::vector<North_south_face> south_faces;
-    std::vector<North_south_face> north_faces;
-
-    std::vector<Top_bottom_face> bottom_faces;
-    std::vector<Top_bottom_face> top_faces;
-
     std::string swib;
     int mblocks;
     int nblocks;
@@ -179,127 +143,48 @@ void Immersed_boundary::create()
     {
         for (int m=0; m<mblocks; ++m)
         {
-            // Calculate the absolute grid indices of the faces.
-            const int iface_start = m*istep + istep/2 - iblock/2;
-            const int iface_end = m*istep + istep/2 + iblock/2;
-            const int jface_start = n*jstep + jstep/2 - jblock/2;
-            const int jface_end = n*jstep + jstep/2 + jblock/2;
-            // const int iface_start = m*istep;
-            // const int iface_end = iface_start + iblock;
-            // const int jface_start = n*jstep;
-            // const int jface_end = jface_start + jblock;
-            const int kface_start = 0;
-            const int kface_end = kface_start + kblock;
+            // Calculate the absolute grid indices of the blocks.
+            // Note that we use c-style ranging, thus end is not part of the
+            // range, and end-start is the number of points in the range.
+            const int iblock_start = m*istep + istep/2 - iblock/2;
+            const int iblock_end = m*istep + istep/2 + iblock/2;
+            const int jblock_start = n*jstep + jstep/2 - jblock/2;
+            const int jblock_end = n*jstep + jstep/2 + jblock/2;
+            // const int iblock_start = m*istep;
+            // const int iblock_end = iblock_start + iblock;
+            // const int jblock_start = n*jstep;
+            // const int jblock_end = jblock_start + jblock;
+            const int kblock_start = 0;
+            const int kblock_end = kblock_start + kblock;
 
             // Check the ranges of i and j for the specific MPI process.
-            // The range is extended with one ghost cell.
-            const int imin_abs = master.mpicoordx*grid.imax - 1;
-            const int imax_abs = (master.mpicoordx+1)*grid.imax + 1;
-            const int jmin_abs = master.mpicoordy*grid.jmax - 1;
-            const int jmax_abs = (master.mpicoordy+1)*grid.jmax + 1;
+            const int imin_abs = master.mpicoordx*grid.imax;
+            const int imax_abs = (master.mpicoordx+1)*grid.imax;
+            const int jmin_abs = master.mpicoordy*grid.jmax;
+            const int jmax_abs = (master.mpicoordy+1)*grid.jmax;
 
             // Check whether there is an edge in range.
-            const bool iface_start_in_range = (iface_start >= imin_abs) && (iface_start <  imax_abs);
-            const bool iface_end_in_range   = (iface_end   >= imin_abs) && (iface_end   <  imax_abs);
-            const bool iface_fully_in_range = (iface_start <  imin_abs) && (iface_end   >= imax_abs);
+            const bool iblock_start_in_range = (iblock_start >= imin_abs) && (iblock_start <  imax_abs);
+            const bool iblock_end_in_range   = (iblock_end-1 >= imin_abs) && (iblock_end-1 <  imax_abs);
+            const bool iblock_fully_in_range = (iblock_start <  imin_abs) && (iblock_end-1 >= imax_abs);
 
-            const bool jface_start_in_range = (jface_start >= jmin_abs) && (jface_start <  jmax_abs);
-            const bool jface_end_in_range   = (jface_end   >= jmin_abs) && (jface_end   <  jmax_abs);
-            const bool jface_fully_in_range = (jface_start <  jmin_abs) && (jface_end   >= jmax_abs);
+            const bool jblock_start_in_range = (jblock_start >= jmin_abs) && (jblock_start <  jmax_abs);
+            const bool jblock_end_in_range   = (jblock_end-1 >= jmin_abs) && (jblock_end-1 <  jmax_abs);
+            const bool jblock_fully_in_range = (jblock_start <  jmin_abs) && (jblock_end-1 >= jmax_abs);
 
-            // EAST-WEST FACES
-            if ( (jface_start_in_range || jface_end_in_range || jface_fully_in_range) )
+            if ( (iblock_start_in_range || iblock_end_in_range || iblock_fully_in_range) &&
+                 (jblock_start_in_range || jblock_end_in_range || jblock_fully_in_range) )
             {
-                if ( !(iface_start < imin_abs || iface_start >= imax_abs) )
-                {
-                    // Store the part of the face that is in range and add ghost cells.
-                    East_west_face west_face;
+                const int istart = (iblock_start_in_range ? iblock_start : imin_abs) - master.mpicoordx*grid.imax + grid.igc;
+                const int iend   = (iblock_end_in_range   ? iblock_end   : imax_abs) - master.mpicoordx*grid.imax + grid.igc;
+                const int jstart = (jblock_start_in_range ? jblock_start : jmin_abs) - master.mpicoordy*grid.jmax + grid.jgc;
+                const int jend   = (jblock_end_in_range   ? jblock_end   : jmax_abs) - master.mpicoordy*grid.jmax + grid.jgc;
 
-                    west_face.i = iface_start%grid.imax + grid.igc;
-
-                    west_face.jstart = (jface_start_in_range ? jface_start-n*grid.jmax : 0) + grid.jgc;
-                    west_face.jend   = (jface_end_in_range ? jface_end-n*grid.jmax : grid.jmax) + grid.jgc;
-                    west_face.kstart = kface_start + grid.kgc;
-                    west_face.kend   = kface_end   + grid.kgc;
-
-                    west_faces.push_back(west_face);
-                }
-
-                if ( !(iface_end < imin_abs || iface_end >= imax_abs) )
-                {
-                    // Store the part of the face that is in range and add ghost cells.
-                    East_west_face east_face;
-
-                    east_face.i = iface_end%grid.imax + grid.igc;
-
-                    east_face.jstart = (jface_start_in_range ? jface_start-n*grid.jmax : 0) + grid.jgc;
-                    east_face.jend   = (jface_end_in_range ? jface_end-n*grid.jmax : grid.jmax) + grid.jgc;
-                    east_face.kstart = kface_start + grid.kgc;
-                    east_face.kend   = kface_end + grid.kgc;
-
-                    east_faces.push_back(east_face);
-                }
-            }
-
-            // NORTH-SOUTH FACES
-            if ( (iface_start_in_range || iface_end_in_range || iface_fully_in_range) )
-            {
-                if ( !(jface_start < jmin_abs || jface_start >= jmax_abs) )
-                {
-                    // Store the part of the face that is in range and add ghost cells.
-                    North_south_face south_face;
-
-                    south_face.j = jface_start%grid.jmax + grid.jgc;
-
-                    south_face.istart = (iface_start_in_range ? iface_start-m*grid.imax : 0) + grid.igc;
-                    south_face.iend   = (iface_end_in_range ? iface_end-m*grid.imax : grid.imax) + grid.igc;
-                    south_face.kstart = kface_start + grid.kgc;
-                    south_face.kend   = kface_end + grid.kgc;
-
-                    south_faces.push_back(south_face);
-                }
-
-                if ( !(jface_end < jmin_abs || jface_end >= jmax_abs) )
-                {
-                    // Store the part of the face that is in range and add ghost cells.
-                    North_south_face north_face;
-
-                    north_face.j = jface_end%grid.jmax + grid.jgc;
-
-                    north_face.istart = (iface_start_in_range ? iface_start-m*grid.imax : 0) + grid.igc;
-                    north_face.iend   = (iface_end_in_range ? iface_end-m*grid.imax : grid.imax) + grid.igc;
-                    north_face.kstart = kface_start + grid.kgc;
-                    north_face.kend   = kface_end + grid.kgc;
-
-                    north_faces.push_back(north_face);
-                }
-            }
-
-            // TOP-DOWN FACES
-            if ( (jface_start_in_range || jface_end_in_range || jface_fully_in_range) &&
-                 (iface_start_in_range || iface_end_in_range || iface_fully_in_range) )
-            {
-                // Store the part of the face that is in range and add ghost cells.
-                Top_bottom_face face;
-
-                face.k = kface_start + grid.kgc;
-
-                face.istart = (iface_start_in_range ? iface_start-m*grid.imax : 0) + grid.igc;
-                face.iend   = (iface_end_in_range ? iface_end-m*grid.imax : grid.imax) + grid.igc;
-                face.jstart = (jface_start_in_range ? jface_start-n*grid.jmax : 0) + grid.jgc;
-                face.jend   = (jface_end_in_range ? jface_end-n*grid.jmax : grid.jmax) + grid.jgc;
-
-                bottom_faces.push_back(face);
-
-                face.k = kface_end + grid.kgc;
-
-                top_faces.push_back(face);
+                std::printf("CvH CHECK: (%d): %d, %d, %d, %d\n", master.mpiid, istart, iend, jstart, jend);
             }
         }
     }
 
-    for (East_west_face& face : east_faces)
-        std::printf("CvH east (%d): %d, %d, %d\n", master.mpiid, face.i, face.jstart, face.jend);
     throw 1;
 }
 
@@ -308,6 +193,7 @@ void Immersed_boundary::exec(Fields& fields)
     if (swib != "1")
         return;
 
+    /*
     for (East_west_face& face : west_faces)
         set_east_west_face_no_penetration(fields.ut->data,
                                           fields.u->data,
@@ -355,4 +241,5 @@ void Immersed_boundary::exec(Fields& fields)
                                            face.jstart, face.jend,
                                            face.k,
                                            grid.icells, grid.ijcells);
+                                           */
 }
