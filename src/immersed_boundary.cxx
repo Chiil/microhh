@@ -42,11 +42,16 @@ namespace
     void set_no_penetration(double* const restrict ut, double* const restrict vt, double* const restrict wt,
                             double* const restrict u, double* const restrict v, double* const restrict w,
                             const int* const ib,
+                            double* const restrict rhoref, double* const restrict rhorefh,
+                            double* const restrict dzi, double* const restrict dzhi,
+                            const double visc,
                             const int istart, const int iend,
                             const int jstart, const int jend,
                             const int kstart, const int kend,
                             const int jj, const int kk)
     {
+        using Finite_difference::O2::interp2;
+
         const int ii = 1;
 
         // Enforce no penetration on faces. For simplicity, we
@@ -59,21 +64,25 @@ namespace
                     const int ij  = i + j*jj;
                     const int ijk = i + j*jj + k*kk;
 
+                    // West face.
                     if (ib[ij] & 1)
                     {
                         ut[ijk] = 0.;
                         u [ijk] = 0.;
                     }
+                    // East face.
                     if (ib[ij] & 2)
                     {
                         ut[ijk+ii] = 0.;
                         u [ijk+ii] = 0.;
                     }
+                    // South face.
                     if (ib[ij] & 4)
                     {
                         vt[ijk] = 0.;
                         v [ijk] = 0.;
                     }
+                    // North face.
                     if (ib[ij] & 8)
                     {
                         vt[ijk+jj] = 0.;
@@ -85,13 +94,30 @@ namespace
         for (int j=jstart; j<jend; ++j)
             for (int i=istart; i<iend; ++i)
             {
-                 const int ij  = i + j*jj;
-                 const int ijk = i + j*jj + kend*kk;
-                 if (ib[ij] & 16)
-                 {
-                     wt[ijk] = 0.;
-                     w [ijk] = 0.;
-                 }
+                const int k = kend;
+                const int ij = i + j*jj;
+                const int ijk = i + j*jj + k*kk;
+
+                // Top face.
+                if (ib[ij] & 16)
+                {
+                    wt[ijk] = 0.;
+                    w [ijk] = 0.;
+                }
+
+                if ( (ib[ij] & 16) || (!(ib[ij] & 16) && (ib[ij-ii] & 16) ) )
+                {
+                    ut[ijk] += - ( rhorefh[k] * interp2(w[ijk-ii], w[ijk]) * interp2(u[ijk-kk], u[ijk]) ) / rhoref[k] * dzi[k]
+                               + visc * ( (u[ijk] - u[ijk-kk]) * dzhi[k] ) * dzi[k]
+                               - visc * ( 2.*u[ijk] * dzhi[k] ) * dzi[k];
+                }
+                    
+                if ( (ib[ij] & 16) || (!(ib[ij] & 16) && (ib[ij-jj] & 16) ) )
+                {
+                    vt[ijk] += - ( rhorefh[k] * interp2(w[ijk-jj], w[ijk]) * interp2(v[ijk-kk], v[ijk]) ) / rhoref[k] * dzi[k]
+                               + visc * ( (v[ijk] - v[ijk-kk]) * dzhi[k] ) * dzi[k]
+                               - visc * ( 2.*v[ijk] * dzhi[k] ) * dzi[k];
+                }
             }
     }
 }
@@ -241,6 +267,9 @@ void Immersed_boundary::exec(Fields& fields)
     set_no_penetration(fields.ut->data, fields.ut->data, fields.wt->data,
                        fields.u->data, fields.v->data, fields.w->data,
                        ib_pattern.data(),
+                       fields.rhoref, fields.rhorefh,
+                       grid.dzi, grid.dzhi,
+                       fields.visc,
                        grid.istart, grid.iend,
                        grid.jstart, grid.jend,
                        grid.kstart, grid.kstart+kblock,
