@@ -44,6 +44,7 @@ namespace
                             const int* const ib,
                             double* const restrict rhoref, double* const restrict rhorefh,
                             double* const restrict dzi, double* const restrict dzhi,
+                            const double dxi, const double dyi,
                             const double visc,
                             const int istart, const int iend,
                             const int jstart, const int jend,
@@ -54,9 +55,12 @@ namespace
 
         const int ii = 1;
 
+        const double dxidxi = dxi*dxi;
+        const double dyidyi = dyi*dyi;
+
         // Enforce no penetration on faces. For simplicity, we
-        // also write the ib in the ghost cells on the edge. This
-        // is harmless.
+        // also write the no penetration in the ghost cells on the edge.
+        // This is harmless.
         for (int k=kstart; k<kend; ++k)
             for (int j=jstart; j<jend; ++j)
                 for (int i=istart; i<iend; ++i)
@@ -64,6 +68,7 @@ namespace
                     const int ij  = i + j*jj;
                     const int ijk = i + j*jj + k*kk;
 
+                    // SET NO PENETRATION.
                     // West face.
                     if (ib[ij] & 1)
                     {
@@ -87,6 +92,24 @@ namespace
                     {
                         vt[ijk+jj] = 0.;
                         v [ijk+jj] = 0.;
+                    }
+
+                    // SET NO SLIP.
+                    // West of west face
+                    if (ib[ij+ii] & 1)
+                    {
+                        wt[ijk] +=
+                                + ( interp2(u[ijk+ii-kk], u[ijk+ii]) * interp2(w[ijk], w[ijk+ii]) ) * dxi
+                                - visc * ( (w[ijk+ii] - w[ijk]) ) * dxidxi
+                                + visc * ( -2.*w[ijk] ) * dxidxi;
+                    }
+                    // East of east face
+                    if (ib[ij-ii] & 2)
+                    {
+                        wt[ijk] +=
+                                - ( interp2(u[ijk-kk], u[ijk]) * interp2(w[ijk-ii], w[ijk]) ) * dxi
+                                + visc * ( (w[ijk] - w[ijk-ii]) ) * dxidxi
+                                - visc * ( 2.*w[ijk] ) * dxidxi;
                     }
                 }
 
@@ -361,6 +384,7 @@ void Immersed_boundary::exec(Fields& fields)
                        ib_pattern.data(),
                        fields.rhoref, fields.rhorefh,
                        grid.dzi, grid.dzhi,
+                       grid.dxi, grid.dyi,
                        fields.visc,
                        grid.istart, grid.iend,
                        grid.jstart, grid.jend,
