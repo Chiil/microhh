@@ -219,36 +219,32 @@ namespace
                     {
                         st[ijk] +=
                                  + ( u[ijk+ii] * interp2(s[ijk], s[ijk+ii]) ) * dxi
-                                 - visc * ( s[ijk+ii] - s[ijk] ) * dxidxi
-                                 + 1.;
+                                 - visc * ( s[ijk+ii] - s[ijk] ) * dxidxi;
                     }
                     // East face.
                     if (ib[ij-ii] & 2)
                     {
                         st[ijk] +=
                                  - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
-                                 + visc * ( (s[ijk] - s[ijk-ii]) ) * dxidxi
-                                 + 1.;
+                                 + visc * ( (s[ijk] - s[ijk-ii]) ) * dxidxi;
                     }
                     // South face.
                     if (ib[ij+jj] & 4)
                     {
                         st[ijk] +=
                                  + ( v[ijk+jj] * interp2(s[ijk], s[ijk+jj]) ) * dyi
-                                 - visc * ( s[ijk+jj] - s[ijk] ) * dyidyi
-                                 + 1.;
+                                 - visc * ( s[ijk+jj] - s[ijk] ) * dyidyi;
                     }
                     // North face.
                     if (ib[ij-jj] & 8)
                     {
                         st[ijk] +=
                                  - ( v[ijk] * interp2(s[ijk-jj], s[ijk]) ) * dyi
-                                 + visc * ( (s[ijk] - s[ijk-jj]) ) * dyidyi
-                                 + 1.;
+                                 + visc * ( (s[ijk] - s[ijk-jj]) ) * dyidyi;
                     }
                 }
 
-        // Set the top.
+        // Set the top and bottom.
         for (int j=jstart; j<jend; ++j)
             for (int i=istart; i<iend; ++i)
             {
@@ -256,18 +252,18 @@ namespace
 
                 if (ib[ij] & 16)
                 {
-                    // int k = kstart;
-                    // int ijk = i + j*jj + k*kk;
-                    // st[ijk] +=
-                    //     + ( rhorefh[k+1] * w[ijk+kk] * interp2(s[ijk], s[ijk+kk]) ) / rhoref[k] * dzi[k]
-                    //     - visc * (s[ijk+kk] - s[ijk]) * dzhi[k+1] * dzi[k];
-
-                    int k = kend;
+                    // Make sure no scalar flows into the ib from the bottom.
+                    int k = kstart;
                     int ijk = i + j*jj + k*kk;
                     st[ijk] +=
                              - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k]
-                             + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k]
-                             + 1.;
+                             + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k];
+
+                    k = kend;
+                    ijk = i + j*jj + k*kk;
+                    st[ijk] +=
+                             - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k]
+                             + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k];
                 }
             }
     }
