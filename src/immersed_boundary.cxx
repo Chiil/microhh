@@ -121,6 +121,33 @@ namespace
                                 + visc * ( (w[ijk] - w[ijk-ii]) ) * dxidxi
                                 - visc * ( 2.*w[ijk] ) * dxidxi;
                     }
+                    // South of south face
+                    if (ib[ij+jj] & 4)
+                    {
+                        ut[ijk] +=
+                                + interp2(v[ijk-ii+jj], v[ijk+jj]) * interp2(u[ijk], u[ijk+jj]) * dyi
+                                - visc * ( (u[ijk+jj] - u[ijk]) ) * dyidyi
+                                + visc * ( -2.*u[ijk] ) * dyidyi;
+
+                        wt[ijk] +=
+                                + interp2(v[ijk+jj-kk], v[ijk+jj]) * interp2(w[ijk], w[ijk+jj]) * dyi
+                                - visc * ( (w[ijk+jj] - w[ijk]) ) * dyidyi
+                                + visc * ( -2.*w[ijk] ) * dyidyi;
+
+                    }
+                    // North of north face
+                    if (ib[ij-jj] & 8)
+                    {
+                        ut[ijk] +=
+                                - interp2(v[ijk-ii], v[ijk]) * interp2(u[ijk-jj], u[ijk]) * dyi
+                                + visc * ( (u[ijk] - u[ijk-jj]) ) * dyidyi
+                                - visc * ( 2.*u[ijk] ) * dyidyi;
+
+                        wt[ijk] +=
+                                - interp2(v[ijk-kk], v[ijk]) * interp2(w[ijk-jj], w[ijk]) * dyi
+                                + visc * ( (w[ijk] - w[ijk-jj]) ) * dyidyi
+                                - visc * ( 2.*w[ijk] ) * dyidyi;
+                    }
                 }
 
         // Set the top.
