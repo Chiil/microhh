@@ -58,11 +58,11 @@ namespace
         const double dxidxi = dxi*dxi;
         const double dyidyi = dyi*dyi;
 
-        // Enforce no penetration on faces. For simplicity, we
-        // also write the no penetration in the ghost cells on the edge.
-        // This is harmless.
+        // Set the IB for the east, west, north, and south edges.
         for (int k=kstart; k<kend; ++k)
+        {
             for (int j=jstart; j<jend; ++j)
+            {
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ij  = i + j*jj;
@@ -95,7 +95,7 @@ namespace
                     }
 
                     // SET NO SLIP.
-                    // West of west face. THIS SKIPS THE TOP EDGE.
+                    // West of west face.
                     if (ib[ij+ii] & 1)
                     {
                         vt[ijk] +=
@@ -108,7 +108,7 @@ namespace
                                 - visc * ( (w[ijk+ii] - w[ijk]) ) * dxidxi
                                 + visc * ( -2.*w[ijk] ) * dxidxi;
                     }
-                    // East of east face. THIS SKIPS THE TOP EDGE.
+                    // East of east face.
                     if (ib[ij-ii] & 2)
                     {
                         vt[ijk] +=
@@ -121,7 +121,7 @@ namespace
                                 + visc * ( (w[ijk] - w[ijk-ii]) ) * dxidxi
                                 - visc * ( 2.*w[ijk] ) * dxidxi;
                     }
-                    // South of south face
+                    // South of south face.
                     if (ib[ij+jj] & 4)
                     {
                         ut[ijk] +=
@@ -135,7 +135,7 @@ namespace
                                 + visc * ( -2.*w[ijk] ) * dyidyi;
 
                     }
-                    // North of north face
+                    // North of north face.
                     if (ib[ij-jj] & 8)
                     {
                         ut[ijk] +=
@@ -149,9 +149,12 @@ namespace
                                 - visc * ( 2.*w[ijk] ) * dyidyi;
                     }
                 }
+            }
+        }
 
         // Set the top.
         for (int j=jstart; j<jend; ++j)
+        {
             for (int i=istart; i<iend; ++i)
             {
                 const int k = kend;
@@ -183,6 +186,7 @@ namespace
                                - visc * ( 2.*v[ijk] * dzhi[k] ) * dzi[k];
                 }
             }
+        }
     }
 
     void set_scalar(double* const restrict st, const double* const restrict s,
@@ -209,7 +213,9 @@ namespace
         // also write the ib in the ghost cells on the edge. This
         // is harmless.
         for (int k=kstart; k<kend; ++k)
+        {
             for (int j=jstart; j<jend; ++j)
+            {
                 for (int i=istart; i<iend; ++i)
                 {
                     const int ij  = i + j*jj;
@@ -251,9 +257,12 @@ namespace
                                 - visc * ( s[ijk] - s_ib ) * dyidyi;
                     }
                 }
+            }
+        }
 
         // Set the top and bottom.
         for (int j=jstart; j<jend; ++j)
+        {
             for (int i=istart; i<iend; ++i)
             {
                 const int ij = i + j*jj;
@@ -280,8 +289,8 @@ namespace
                              - visc * (s[ijk] - s_ib) * dzhi[k] * dzi[k];
                 }
             }
+        }
     }
-
 }
 
 Immersed_boundary::Immersed_boundary(Master& masterin, Grid& gridin, Input& input) :
