@@ -192,6 +192,7 @@ namespace
                     double* const restrict dzi, double* const restrict dzhi,
                     const double dxi, const double dyi,
                     const double visc,
+                    const double sbot,
                     const int istart, const int iend,
                     const int jstart, const int jend,
                     const int kstart, const int kend,
@@ -214,33 +215,40 @@ namespace
                     const int ij  = i + j*jj;
                     const int ijk = i + j*jj + k*kk;
 
+                    const double s_ib = 2.*sbot - s[ijk];
+
                     // West face.
                     if (ib[ij+ii] & 1)
                     {
                         st[ijk] +=
-                                 + ( u[ijk+ii] * interp2(s[ijk], s[ijk+ii]) ) * dxi
-                                 - visc * ( s[ijk+ii] - s[ijk] ) * dxidxi;
+                                + ( u[ijk+ii] * interp2(s[ijk], s[ijk+ii]) ) * dxi
+                                - visc * ( s[ijk+ii] - s[ijk] ) * dxidxi
+                                + visc * ( s_ib - s[ijk]   ) * dxidxi;
                     }
                     // East face.
                     if (ib[ij-ii] & 2)
                     {
+                        const double s_ib = 2.*sbot - s[ijk];
                         st[ijk] +=
-                                 - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
-                                 + visc * ( (s[ijk] - s[ijk-ii]) ) * dxidxi;
+                                - ( u[ijk] * interp2(s[ijk-ii], s[ijk]) ) * dxi
+                                + visc * ( s[ijk] - s[ijk-ii] ) * dxidxi
+                                - visc * ( s[ijk] - s_ib ) * dxidxi;
                     }
                     // South face.
                     if (ib[ij+jj] & 4)
                     {
                         st[ijk] +=
-                                 + ( v[ijk+jj] * interp2(s[ijk], s[ijk+jj]) ) * dyi
-                                 - visc * ( s[ijk+jj] - s[ijk] ) * dyidyi;
+                                + ( v[ijk+jj] * interp2(s[ijk], s[ijk+jj]) ) * dyi
+                                - visc * ( s[ijk+jj] - s[ijk] ) * dyidyi
+                                + visc * ( s_ib - s[ijk] ) * dyidyi;
                     }
                     // North face.
                     if (ib[ij-jj] & 8)
                     {
                         st[ijk] +=
-                                 - ( v[ijk] * interp2(s[ijk-jj], s[ijk]) ) * dyi
-                                 + visc * ( (s[ijk] - s[ijk-jj]) ) * dyidyi;
+                                - ( v[ijk] * interp2(s[ijk-jj], s[ijk]) ) * dyi
+                                + visc * ( s[ijk] - s[ijk-jj] ) * dyidyi
+                                - visc * ( s[ijk] - s_ib ) * dyidyi;
                     }
                 }
 
@@ -250,20 +258,26 @@ namespace
             {
                 const int ij = i + j*jj;
 
+
                 if (ib[ij] & 16)
                 {
                     // Make sure no scalar flows into the ib from the bottom.
                     int k = kstart;
                     int ijk = i + j*jj + k*kk;
+                    double s_ib = 2.*sbot - s[ijk];
+
                     st[ijk] +=
                              - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k]
                              + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k];
 
                     k = kend;
                     ijk = i + j*jj + k*kk;
+                    s_ib = 2.*sbot - s[ijk];
+
                     st[ijk] +=
                              - ( rhorefh[k] * w[ijk] * interp2(s[ijk-kk], s[ijk]) ) / rhoref[k] * dzi[k]
-                             + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k];
+                             + visc * (s[ijk] - s[ijk-kk]) * dzhi[k] * dzi[k]
+                             - visc * (s[ijk] - s_ib) * dzhi[k] * dzi[k];
                 }
             }
     }
@@ -312,10 +326,20 @@ void Immersed_boundary::init()
     std::fill(ib_pattern.begin(), ib_pattern.end(), 0);
 }
 
-void Immersed_boundary::create()
+void Immersed_boundary::create(Input& input, Fields& fields)
 {
     if (swib != "1")
         return;
+
+    // Get the boundary conditions for each scalar.
+    for (auto& s : fields.sp)
+    {
+        double sbot;
+        int nerror = input.get_item(&sbot, "ib", "sbot", s.first);
+        if (nerror)
+            throw 1;
+        sbot_map[s.first] = sbot;
+    }
 
     // Set the west faces
     const int istep = grid.itot/mblocks;
@@ -435,6 +459,7 @@ void Immersed_boundary::exec(Fields& fields)
                    grid.dzi, grid.dzhi,
                    grid.dxi, grid.dyi,
                    fields.visc,
+                   sbot_map[s.first],
                    grid.istart, grid.iend,
                    grid.jstart, grid.jend,
                    grid.kstart, grid.kstart+kblock,

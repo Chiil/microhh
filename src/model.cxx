@@ -200,7 +200,7 @@ void Model::load()
     force ->create(input);
     thermo->create(input);
 
-    immersed_boundary->create();
+    immersed_boundary->create(*input, *fields);
 
     budget->create();
 

@@ -35,11 +35,13 @@ class Immersed_boundary
         ~Immersed_boundary(); ///< Destructor of the class.
 
         void init();
-        void create();
+        void create(Input&, Fields&);
         void exec(Fields&);
 
     private:
         Master& master; ///< Pointer to master class.
         Grid&   grid;   ///< Pointer to grid class.
+
+        std::map<std::string, double> sbot_map;
 };
 #endif
