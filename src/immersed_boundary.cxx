@@ -356,7 +356,7 @@ void Immersed_boundary::exec(Fields& fields)
     if (swib != "1")
         return;
 
-    set_no_penetration(fields.ut->data, fields.ut->data, fields.wt->data,
+    set_no_penetration(fields.ut->data, fields.vt->data, fields.wt->data,
                        fields.u->data, fields.v->data, fields.w->data,
                        ib_pattern.data(),
                        fields.rhoref, fields.rhorefh,
