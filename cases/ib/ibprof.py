@@ -13,7 +13,7 @@ dz = zsize / kmax
 # Set the height.
 z = np.linspace(0.5*dz, zsize-0.5*dz, kmax)
 u = 0.1*np.ones(np.size(z))
-v = 0.*np.ones(np.size(z))
+v = 0.1*np.ones(np.size(z))
 b = z.copy() / zsize
 b = np.zeros(z.size)
 
