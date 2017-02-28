@@ -95,19 +95,29 @@ namespace
                     }
 
                     // SET NO SLIP.
-                    // West of west face
+                    // West of west face. THIS SKIPS THE TOP EDGE.
                     if (ib[ij+ii] & 1)
                     {
+                        vt[ijk] +=
+                                + interp2(u[ijk+ii-jj], u[ijk+ii]) * interp2(v[ijk], v[ijk+ii]) * dxi
+                                - visc * ( (v[ijk+ii] - v[ijk]) ) * dxidxi
+                                + visc * ( -2.*v[ijk] ) * dxidxi;
+
                         wt[ijk] +=
-                                + ( interp2(u[ijk+ii-kk], u[ijk+ii]) * interp2(w[ijk], w[ijk+ii]) ) * dxi
+                                + interp2(u[ijk+ii-kk], u[ijk+ii]) * interp2(w[ijk], w[ijk+ii]) * dxi
                                 - visc * ( (w[ijk+ii] - w[ijk]) ) * dxidxi
                                 + visc * ( -2.*w[ijk] ) * dxidxi;
                     }
-                    // East of east face
+                    // East of east face. THIS SKIPS THE TOP EDGE.
                     if (ib[ij-ii] & 2)
                     {
+                        vt[ijk] +=
+                                - interp2(u[ijk-jj], u[ijk]) * interp2(v[ijk-ii], v[ijk]) * dxi
+                                + visc * ( (v[ijk] - v[ijk-ii]) ) * dxidxi
+                                - visc * ( 2.*v[ijk] ) * dxidxi;
+
                         wt[ijk] +=
-                                - ( interp2(u[ijk-kk], u[ijk]) * interp2(w[ijk-ii], w[ijk]) ) * dxi
+                                - interp2(u[ijk-kk], u[ijk]) * interp2(w[ijk-ii], w[ijk]) * dxi
                                 + visc * ( (w[ijk] - w[ijk-ii]) ) * dxidxi
                                 - visc * ( 2.*w[ijk] ) * dxidxi;
                     }
