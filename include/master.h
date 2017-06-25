@@ -27,7 +27,6 @@
 #include <mpi.h>
 #endif
 #include <string>
-#include "input.h"
 
 class Input;
 

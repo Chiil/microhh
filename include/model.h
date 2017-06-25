@@ -24,6 +24,7 @@
 #define MODEL
 
 #include <string>
+#include <vector>
 
 class Master;
 class Input;

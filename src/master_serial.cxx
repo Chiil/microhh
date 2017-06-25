@@ -22,9 +22,8 @@
 
 #ifndef USEMPI
 #include <sys/time.h>
-#include "grid.h"
-#include "defines.h"
 #include "master.h"
+#include "input.h"
 
 Master::Master()
 {

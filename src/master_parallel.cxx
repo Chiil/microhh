@@ -23,9 +23,9 @@
 #ifdef USEMPI
 #include <mpi.h>
 #include <stdexcept>
-#include "grid.h"
-#include "defines.h"
+// #include "defines.h"
 #include "master.h"
+#include "input.h"
 
 Master::Master()
 {

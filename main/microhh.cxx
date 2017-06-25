@@ -22,6 +22,7 @@
 
 #include <iostream>
 #include "master.h"
+#include "input.h"
 #include "model.h"
 
 int main(int argc, char *argv[])
