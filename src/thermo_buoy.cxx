@@ -46,7 +46,7 @@ Thermo_buoy::Thermo_buoy(Model *modelin, Input *inputin) : Thermo(modelin, input
     nerror += inputin->get_item(&alpha, "thermo", "alpha", "", 0.);
     nerror += inputin->get_item(&n2   , "thermo", "N2"   , "", 0.);
     nerror += inputin->get_item(&fields->sp["b"]->visc, "fields", "svisc", "b");
-	
+
 	has_slope = std::abs(alpha) > 0.;
 	has_N2 = std::abs(n2) > 0.;
 
@@ -64,31 +64,33 @@ Thermo_buoy::~Thermo_buoy()
 #ifndef USECUDA
 void Thermo_buoy::exec()
 {
-    if (grid->swspatialorder == "2") 
+    if (grid->swspatialorder == "2")
     {
-	    if (has_slope || has_N2) 
+	    if (has_slope || has_N2)
 	    {
             calc_buoyancy_tend_u_2nd(fields->ut->data, fields->sp["b"]->data);
             calc_buoyancy_tend_w_2nd(fields->wt->data, fields->sp["b"]->data);
             calc_buoyancy_tend_b_2nd(fields->st["b"]->data, fields->u->data, fields->w->data);
-        } 
-        else 
+        }
+        else
         {
 	        calc_buoyancy_tend_2nd(fields->wt->data, fields->sp["b"]->data);
+            // add call to calc_blablabla_2nd
         }
-    } 
-    else if (grid->swspatialorder == "4") 
-    {    
-	    if (has_slope || has_N2) 
-	    {
-		    calc_buoyancy_tend_u_4th(fields->ut->data, fields->sp["b"]->data);
+    }
+    else if (grid->swspatialorder == "4")
+    {
+  	    if (has_slope || has_N2)
+  	    {
+  		    calc_buoyancy_tend_u_4th(fields->ut->data, fields->sp["b"]->data);
             calc_buoyancy_tend_w_4th(fields->wt->data, fields->sp["b"]->data);
             calc_buoyancy_tend_b_4th(fields->st["b"]->data, fields->u->data, fields->w->data);
-	    }
-	    else 
-	    {
-		    calc_buoyancy_tend_4th(fields->wt->data, fields->sp["b"]->data);
-	    }
+  	    }
+  	    else
+  	    {
+  		    calc_buoyancy_tend_4th(fields->wt->data, fields->sp["b"]->data);
+            // add call to calc_blablabla_2nd
+  	    }
     }
 }
 #endif
@@ -124,7 +126,7 @@ void Thermo_buoy::get_buoyancy_surf(Field3d *bfield)
 
 double Thermo_buoy::get_buoyancy_diffusivity()
 {
-    return fields->sp["b"]->visc; 
+    return fields->sp["b"]->visc;
 }
 
 bool Thermo_buoy::check_field_exists(std::string name)
@@ -187,6 +189,36 @@ void Thermo_buoy::calc_buoyancy_tend_2nd(double* restrict wt, double* restrict b
             }
 }
 
+void Thermo_buoy::calc_blablabla_2nd(double* restrict bt, const double* restrict v, const double shear)
+{
+    const int jj = grid->icells;
+    const int kk = grid->ijcells;
+
+    for (int k=grid->kstart; k<grid->kend; ++k)
+        for (int j=grid->jstart; j<grid->jend; ++j)
+            #pragma ivdep
+            for (int i=grid->istart; i<grid->iend; ++i)
+            {
+                const int ijk = i + j*jj + k*kk;
+                // To be filled in...
+            }
+}
+
+void Thermo_buoy::calc_blablabla_4th(double* restrict bt, const double* restrict v, const double shear)
+{
+    const int jj = grid->icells;
+    const int kk = grid->ijcells;
+
+    for (int k=grid->kstart; k<grid->kend; ++k)
+        for (int j=grid->jstart; j<grid->jend; ++j)
+            #pragma ivdep
+            for (int i=grid->istart; i<grid->iend; ++i)
+            {
+                const int ijk = i + j*jj + k*kk;
+                // To be filled in...
+            }
+}
+
 void Thermo_buoy::calc_buoyancy_tend_u_2nd(double* restrict ut, double* restrict b)
 {
     const int ii1 = 1;
@@ -194,7 +226,7 @@ void Thermo_buoy::calc_buoyancy_tend_u_2nd(double* restrict ut, double* restrict
     const int kk  = grid->ijcells;
 
     const double sinalpha = std::sin(this->alpha);
-    
+
     for (int k=grid->kstart; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
             #pragma ivdep
@@ -211,7 +243,7 @@ void Thermo_buoy::calc_buoyancy_tend_w_2nd(double* restrict wt, double* restrict
     const int kk1 = 1*grid->ijcells;
 
     const double cosalpha = std::cos(this->alpha);
-    
+
     for (int k=grid->kstart+1; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
             #pragma ivdep
@@ -232,7 +264,7 @@ void Thermo_buoy::calc_buoyancy_tend_b_2nd(double* restrict bt, double* restrict
     const double cosalpha = std::cos(this->alpha);
     const double n2 = this->n2;
     const double utrans = grid->utrans;
-    
+
     for (int k=grid->kstart; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
             #pragma ivdep
@@ -242,7 +274,7 @@ void Thermo_buoy::calc_buoyancy_tend_b_2nd(double* restrict bt, double* restrict
                 bt[ijk] -= n2 * ( sinalpha * (interp2(u[ijk], u[ijk+ii1]) + utrans)
                                 + cosalpha *  interp2(w[ijk], w[ijk+kk1]) );
             }
-}                                                  
+}
 
 void Thermo_buoy::calc_buoyancy_tend_4th(double* restrict wt, double* restrict b)
 {
@@ -268,7 +300,7 @@ void Thermo_buoy::calc_buoyancy_tend_u_4th(double* restrict ut, double* restrict
     const int kk  = grid->ijcells;
 
     const double sinalpha = std::sin(this->alpha);
-    
+
     for (int k=grid->kstart; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
             #pragma ivdep
@@ -286,7 +318,7 @@ void Thermo_buoy::calc_buoyancy_tend_w_4th(double* restrict wt, double* restrict
     const int kk2 = 2*grid->ijcells;
 
     const double cosalpha = std::cos(this->alpha);
-    
+
     for (int k=grid->kstart+1; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
             #pragma ivdep
@@ -309,7 +341,7 @@ void Thermo_buoy::calc_buoyancy_tend_b_4th(double* restrict bt, double* restrict
     const double cosalpha = std::cos(this->alpha);
     const double n2 = this->n2;
     const double utrans = grid->utrans;
-    
+
     for (int k=grid->kstart; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
             #pragma ivdep

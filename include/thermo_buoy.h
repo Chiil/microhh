@@ -58,19 +58,21 @@ class Thermo_buoy : public Thermo
         void exec_cross() {}
         void exec_dump() {}
         void get_mask(Field3d*, Field3d*, Mask*) {}
-        
-#ifdef USECUDA
-    void prepare_device() {};
-    void clear_device() {};
-#endif
 
-private:
+        #ifdef USECUDA
+        void prepare_device() {};
+        void clear_device() {};
+        #endif
+
+    private:
         void calc_buoyancy(double*, double*);              ///< Calculation of the buoyancy.
         void calc_buoyancy_bot(double*, double*,
                                double*, double*);          ///< Calculation of the near-surface and surface buoyancy.
         void calc_buoyancy_fluxbot(double*, double*);      ///< Calculation of the buoyancy flux at the bottom.
         void calc_buoyancy_tend_2nd(double*, double*);     ///< Calculation of the buoyancy tendency with 2nd order accuracy.
         void calc_buoyancy_tend_u_2nd(double *, double *); ///< Calculation of the buoyancy tendency with 2nd order accuracy.
+        void calc_blablabla_2nd(double *, const double*, const double);
+        void calc_blablabla_4th(double *, const double*, const double);
         void calc_buoyancy_tend_w_2nd(double *, double *); ///< Calculation of the buoyancy tendency with 2nd order accuracy.
         void calc_buoyancy_tend_b_2nd(double *, double *, double *); ///< Calculation of the buoyancy tendency with 2nd order accuracy.
         void calc_buoyancy_tend_4th(double*, double*);     ///< Calculation of the buoyancy tendency with 4th order accuracy.
