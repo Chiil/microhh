@@ -46,6 +46,8 @@ Thermo_buoy::Thermo_buoy(Model *modelin, Input *inputin) : Thermo(modelin, input
     nerror += inputin->get_item(&alpha, "thermo", "alpha", "", 0.);
     nerror += inputin->get_item(&n2   , "thermo", "N2"   , "", 0.);
     nerror += inputin->get_item(&fields->sp["b"]->visc, "fields", "svisc", "b");
+    nerror += inputin->get_item(&shear, "thermo", "shear", "", 0.);
+    nerror += inputin->get_item(&fc   , "force" , "fc"   , "", 1e-4);
 
 	has_slope = std::abs(alpha) > 0.;
 	has_N2 = std::abs(n2) > 0.;
@@ -74,8 +76,8 @@ void Thermo_buoy::exec()
         }
         else
         {
-	        calc_buoyancy_tend_2nd(fields->wt->data, fields->sp["b"]->data);
-            // add call to calc_blablabla_2nd
+	        calc_buoyancy_tend_w_2nd(fields->wt->data, fields->sp["b"]->data);
+            //calc_buoyancy_tend_horgrad_2nd(fields->st["b"]->data, fields->v->data, shear, fc);
         }
     }
     else if (grid->swspatialorder == "4")
@@ -88,8 +90,8 @@ void Thermo_buoy::exec()
   	    }
   	    else
   	    {
-  		    calc_buoyancy_tend_4th(fields->wt->data, fields->sp["b"]->data);
-            // add call to calc_blablabla_2nd
+            calc_buoyancy_tend_w_4th(fields->wt->data, fields->sp["b"]->data);
+            //calc_buoyancy_tend_horgrad_4th(fields->st["b"]->data, fields->v->data, shear, fc);
   	    }
     }
 }
@@ -189,7 +191,8 @@ void Thermo_buoy::calc_buoyancy_tend_2nd(double* restrict wt, double* restrict b
             }
 }
 
-void Thermo_buoy::calc_blablabla_2nd(double* restrict bt, const double* restrict v, const double shear)
+void Thermo_buoy::calc_buoyancy_tend_horgrad_2nd(double* restrict bt, const double* restrict v,
+                                                 const double shear, const double fc)
 {
     const int jj = grid->icells;
     const int kk = grid->ijcells;
@@ -200,22 +203,25 @@ void Thermo_buoy::calc_blablabla_2nd(double* restrict bt, const double* restrict
             for (int i=grid->istart; i<grid->iend; ++i)
             {
                 const int ijk = i + j*jj + k*kk;
-                // To be filled in...
+                // added:
+                bt[ijk] += shear*fc*interp2(v[ijk], v[ijk+jj]);
             }
 }
 
-void Thermo_buoy::calc_blablabla_4th(double* restrict bt, const double* restrict v, const double shear)
+void Thermo_buoy::calc_buoyancy_tend_horgrad_4th(double* restrict bt, const double* restrict v,
+                                                 const double shear, const double fc)
 {
-    const int jj = grid->icells;
     const int kk = grid->ijcells;
-
+    const int jj1 = 1*grid->icells;
+    const int jj2 = 2*grid->icells;
     for (int k=grid->kstart; k<grid->kend; ++k)
         for (int j=grid->jstart; j<grid->jend; ++j)
             #pragma ivdep
             for (int i=grid->istart; i<grid->iend; ++i)
             {
-                const int ijk = i + j*jj + k*kk;
-                // To be filled in...
+                const int ijk = i + j*jj1 + k*kk;
+                // added:
+                bt[ijk] += shear*fc*interp4(v[ijk-jj1], v[ijk], v[ijk+jj1], v[ijk+jj2]);
             }
 }
 
