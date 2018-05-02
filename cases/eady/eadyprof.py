@@ -10,14 +10,13 @@ with open('eady.ini') as f:
 
 dz = zsize / kmax
 
-N2 = 0.0001
-shear = 1e-2
+N2 = 1.
+shear = 1e-4
 
 # set the height
 z = numpy.linspace(0.5*dz, zsize-0.5*dz, kmax)
 b = numpy.zeros(numpy.size(z))
 ug = numpy.zeros(numpy.size(z))
-
 
 # linearly stratified profile
 for k in range(kmax):
