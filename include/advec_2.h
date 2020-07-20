@@ -58,6 +58,10 @@ class Advec_2 : public Advec<TF>
         using Advec<TF>::cflmax;
         using Advec<TF>::cflmin;
 
+        std::vector<std::string> fluxlimit_list;
+        std::vector<std::string> sp_limit;
+        std::vector<std::string> sp_nolimit;
+
         const std::string tend_name = "advec";
         const std::string tend_longname = "Advection";
 };
