@@ -96,16 +96,61 @@ for j in range(1, 2):
 
         sbot[js-soff:jn-soff, iw:ie] = -1.
 
+# Middle point
+j = 0
+for i in range(1, 3):
+    iw = - 1 + i*stepi
+    ie = + 1 + i*stepi
+    js = stepj//2 - 1 + j*stepj
+    jn = stepj//2 + 1 + j*stepj
+    
+    sbot[js+soff:jn+soff, iw:ie] = -1.
+
+j = 1
+for i in range(1, 3):
+    iw = - 1 + i*stepi
+    ie = + 1 + i*stepi
+    js = stepj//2 - 1 + j*stepj
+    jn = stepj//2 + 1 + j*stepj
+    
+    sbot[js-soff:jn-soff, iw:ie] = -1.
+
+# In between houses
+j = 0
+i = 1
+iw = - 1 + i*stepi
+ie = + 1 + i*stepi
+js = stepj//2 - 1 + j*stepj
+jn = stepj//2 + 1 + j*stepj
+
+sbot[js:jn, iw:ie] = -1.
+
+j = 1
+i = 1
+iw = - 1 + i*stepi
+ie = + 1 + i*stepi
+js = stepj//2 - 1 + j*stepj
+jn = stepj//2 + 1 + j*stepj
+
+sbot[js:jn,iw:ie] = -1.
+
+# Street center
+j = 1
+i = 0
+iw = stepi//2 - 1
+ie = stepi//2 + 1
+js = - 1 + j*stepj
+jn = + 1 + j*stepj
+
+sbot[js:jn,iw:ie] = -1.
+
+
+
+
 # sbot.tofile('s_sbot.0000000')
 sbot.tofile('s_bot.0000000')
-
-"""
-plt.figure()
-plt.pcolormesh(dem)
-plt.colorbar()
 
 plt.figure()
 plt.pcolormesh(dem + sbot)
 plt.colorbar()
 plt.show()
-"""
