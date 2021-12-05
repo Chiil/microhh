@@ -85,7 +85,7 @@ for j in range(0, 1):
         js = stepj//2 - 1 + j*stepj
         jn = stepj//2 + 1 + j*stepj
 
-        sbot[js+soff:jn+soff, iw:ie] = 0.1
+        sbot[js+soff:jn+soff, iw:ie] = -1.
 
 for j in range(1, 2):
     for i in range(0, 2):
@@ -94,11 +94,12 @@ for j in range(1, 2):
         js = stepj//2 - 1 + j*stepj
         jn = stepj//2 + 1 + j*stepj
 
-        sbot[js-soff:jn-soff, iw:ie] = 0.1
+        sbot[js-soff:jn-soff, iw:ie] = -1.
 
-sbot.tofile('s_sbot.0000000')
+# sbot.tofile('s_sbot.0000000')
 sbot.tofile('s_bot.0000000')
 
+"""
 plt.figure()
 plt.pcolormesh(dem)
 plt.colorbar()
@@ -107,3 +108,4 @@ plt.figure()
 plt.pcolormesh(dem + sbot)
 plt.colorbar()
 plt.show()
+"""
