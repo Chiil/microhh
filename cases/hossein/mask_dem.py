@@ -13,6 +13,8 @@ data_v['v'][:, :, :] = np.where(dem > 0, np.nan, data_v['v'][:, :, :])
 data_v.close()
 """
 
-data_s = nc.Dataset('s.xy.nc', 'a')
-data_s['s'][:, :, :] = np.where(dem > 0, np.nan, data_s['s'][:, :, :])
-data_s.close()
+for i in range(10):
+    var = 's{0}'.format(i)
+    data_s = nc.Dataset('{0}.xy.nc'.format(var), 'a')
+    data_s[var][:, :, :] = np.where(dem > 0, np.nan, data_s[var][:, :, :])
+    data_s.close()

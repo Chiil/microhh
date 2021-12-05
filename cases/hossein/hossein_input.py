@@ -76,46 +76,58 @@ for j in range(nj):
 
 dem.tofile('dem.0000000')
 
+sbot_list = []
+
 sbot = np.zeros((jtot, itot))
 soff = (3*nblock)//2
+
 for j in range(0, 1):
     for i in range(0, 2):
+        sbot[:, :] = 0.
         iw = stepi//2 - 1 + i*stepi
         ie = stepi//2 + 1 + i*stepi
         js = stepj//2 - 1 + j*stepj
         jn = stepj//2 + 1 + j*stepj
 
         sbot[js+soff:jn+soff, iw:ie] = -1.
+        sbot_list.append(sbot.copy())
 
 for j in range(1, 2):
     for i in range(0, 2):
+        sbot[:, :] = 0.
         iw = stepi//2 - 1 + i*stepi
         ie = stepi//2 + 1 + i*stepi
         js = stepj//2 - 1 + j*stepj
         jn = stepj//2 + 1 + j*stepj
 
         sbot[js-soff:jn-soff, iw:ie] = -1.
+        sbot_list.append(sbot.copy())
 
 # Middle point
 j = 0
 for i in range(1, 3):
+    sbot[:, :] = 0.
     iw = - 1 + i*stepi
     ie = + 1 + i*stepi
     js = stepj//2 - 1 + j*stepj
     jn = stepj//2 + 1 + j*stepj
     
     sbot[js+soff:jn+soff, iw:ie] = -1.
+    sbot_list.append(sbot.copy())
 
 j = 1
 for i in range(1, 3):
+    sbot[:, :] = 0.
     iw = - 1 + i*stepi
     ie = + 1 + i*stepi
     js = stepj//2 - 1 + j*stepj
     jn = stepj//2 + 1 + j*stepj
     
     sbot[js-soff:jn-soff, iw:ie] = -1.
+    sbot_list.append(sbot.copy())
 
 # In between houses
+sbot[:, :] = 0.
 j = 0
 i = 1
 iw = - 1 + i*stepi
@@ -124,7 +136,9 @@ js = stepj//2 - 1 + j*stepj
 jn = stepj//2 + 1 + j*stepj
 
 sbot[js:jn, iw:ie] = -1.
+sbot_list.append(sbot.copy())
 
+sbot[:, :] = 0.
 j = 1
 i = 1
 iw = - 1 + i*stepi
@@ -133,8 +147,10 @@ js = stepj//2 - 1 + j*stepj
 jn = stepj//2 + 1 + j*stepj
 
 sbot[js:jn,iw:ie] = -1.
+sbot_list.append(sbot.copy())
 
 # Street center
+sbot[:, :] = 0.
 j = 1
 i = 0
 iw = stepi//2 - 1
@@ -143,14 +159,15 @@ js = - 1 + j*stepj
 jn = + 1 + j*stepj
 
 sbot[js:jn,iw:ie] = -1.
+sbot_list.append(sbot.copy())
 
 
+for n in range(len(sbot_list)):
+    sbot_list[n].tofile('s{0}_bot.0000000'.format(n))
 
-
-# sbot.tofile('s_sbot.0000000')
-sbot.tofile('s_bot.0000000')
-
+"""
 plt.figure()
 plt.pcolormesh(dem + sbot)
 plt.colorbar()
 plt.show()
+"""
