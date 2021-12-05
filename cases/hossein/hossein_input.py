@@ -45,7 +45,6 @@ nc_z  = nc_file.createVariable("z" , float_type, ("z"))
 
 nc_group_init = nc_file.createGroup("init");
 nc_u = nc_group_init.createVariable("u", float_type, ("z"))
-nc_s = nc_group_init.createVariable("s", float_type, ("z"))
 
 nc_z[:] = z[:]
 nc_u[:] = u[:]
@@ -86,7 +85,7 @@ for j in range(0, 1):
         js = stepj//2 - 1 + j*stepj
         jn = stepj//2 + 1 + j*stepj
 
-        sbot[js+soff:jn+soff, iw:ie] = 2
+        sbot[js+soff:jn+soff, iw:ie] = 0.1
 
 for j in range(1, 2):
     for i in range(0, 2):
@@ -95,8 +94,10 @@ for j in range(1, 2):
         js = stepj//2 - 1 + j*stepj
         jn = stepj//2 + 1 + j*stepj
 
-        sbot[js-soff:jn-soff, iw:ie] = 2
+        sbot[js-soff:jn-soff, iw:ie] = 0.1
 
+sbot.tofile('s_sbot.0000000')
+sbot.tofile('s_bot.0000000')
 
 plt.figure()
 plt.pcolormesh(dem)
