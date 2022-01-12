@@ -1,7 +1,7 @@
 import netCDF4 as nc
 import numpy as np
 
-dem = np.fromfile('dem.0000000').reshape(1, 128, 256)
+dem = np.fromfile('dem.0000000').reshape(1, 64, 128)
 
 """
 data_u = nc.Dataset('u.xy.nc', 'a')
